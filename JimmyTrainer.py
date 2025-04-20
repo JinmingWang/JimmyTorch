@@ -18,7 +18,8 @@ class JimmyTrainer:
                  model: JimmyModel,
                  optimizer: torch.optim.Optimizer,
                  lr_scheduler: JimmyLRScheduler | torch.optim.lr_scheduler._LRScheduler,
-                 comments: str,
+                 log_dir: str,
+                 save_dir: str,
                  n_epochs: int = 100,
                  moving_avg: int = 100,
                  mixed_precision: bool = False,
@@ -30,7 +31,9 @@ class JimmyTrainer:
         :param dataset: A `JimmyDataset` object that provides the training data. It must return a dictionary containing the input data and target labels.
         :param model: A `JimmyModel` object. The model must implement a `forwardBackward` function that returns a dictionary of loss and output, and must have a `loss_names` attribute that lists the keys of the loss dictionary.
         :param optimizer: A PyTorch optimizer used to update the model parameters.
-        :param comments: A string containing comments or notes about the training session.
+        :param lr_scheduler: A learning rate scheduler. It can be a `JimmyLRScheduler` or a PyTorch learning rate scheduler. The scheduler must implement an `update` method that takes the current loss as an argument.
+        :param log_dir: A string specifying the directory where the training logs will be saved.
+        :param save_dir: A string specifying the directory where the model checkpoints will be saved.
         :param moving_avg: An integer specifying the window size for calculating the moving average of the loss. Default is 100.
         :param mixed_precision: A boolean indicating whether to use mixed precision training. Default is False.
         :param compile_model: A boolean indicating whether to use `torch.compile` to optimize the model. Default is False.
@@ -47,9 +50,6 @@ class JimmyTrainer:
         self.clip_grad = clip_grad
         self.optimizer = optimizer
 
-        a = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=moving_avg)
-        a.step()
-
         if not hasattr(lr_scheduler, 'update'):
             # get number of arguments of lr_scheduler.step()
             num_args = len(inspect.signature(lr_scheduler.step).parameters)
@@ -59,29 +59,11 @@ class JimmyTrainer:
                 lr_scheduler.update = lambda metric: lr_scheduler.step(metric)
 
         self.lr_scheduler = lr_scheduler
+        self.log_dir = log_dir
+        self.save_dir = save_dir
         self.n_epochs = n_epochs
         self.moving_avg = moving_avg
         self.global_step = 0
-
-        # Create save dir and log_dir based on the model name and current time
-        now_str = datetime.now().strftime("%y%m%d_%H%M%S")
-        self.save_dir = f"Runs/{model.__class__.__name__}/{now_str}/"
-        self.log_dir = f"Runs/{model.__class__.__name__}/{now_str}/"
-
-        # Create directories if they do not exist
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
-        if not os.path.exists(self.log_dir):
-            os.makedirs(self.log_dir)
-
-        # Save the model architecture and comments, for reviewing later, or used as a backup
-        with open(os.path.join(self.log_dir, "model_arch.txt"), "w") as f:
-            f.write(str(model))
-        with open(os.path.join(self.log_dir, "comments.txt"), "w") as f:
-            f.write(comments)
-
-        rprint(f"[blue]Save directory: {self.save_dir}.[/blue]")
-        rprint(f"[blue]Log directory: {self.log_dir}.[/blue]")
 
 
     def trainStep(self, data_dict: Dict[str, Any]) -> (Dict[str, float], Dict[str, Any]):

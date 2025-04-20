@@ -4,7 +4,9 @@ from Models import *
 from Training import *
 import torch
 from typing import *
-from copy import deepcopy
+from datetime import datetime
+import os
+from rich import print as rprint
 
 
 class JimmyExperiment:
@@ -64,10 +66,33 @@ class JimmyExperiment:
         :return: A `JimmyTrainer` object with amost everything during a training session.
         """
         rich_comments = f"{comments}.\n{self.__str__()}"
+
         trainer_kwargs = {k: self.hyper_params[k](**self.hyper_params[f"{k}_args"]) for k in self.instance_keys}
         trainer_kwargs.update(self.constants)
 
-        trainer = JimmyTrainer(**trainer_kwargs, comments=rich_comments)
+        # Create Experiment directories
+        now_str = datetime.now().strftime("%y%m%d_%H%M%S")
+        dataset_name = trainer_kwargs["dataset"].__class__.__name__
+        model_name = trainer_kwargs["model"].__class__.__name__
+        save_dir = f"Runs/{dataset_name}/{model_name}/{now_str}/"
+        log_dir = save_dir
+
+        # Create directories if they do not exist
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
+        with open(os.path.join(log_dir, "model_arch.txt"), "w") as f:
+            f.write(str(trainer_kwargs["model"]))
+        with open(os.path.join(log_dir, "comments.txt"), "w") as f:
+            f.write(rich_comments)
+
+        rprint(f"[blue]Save directory: {save_dir}.[/blue]")
+        rprint(f"[blue]Log directory: {log_dir}.[/blue]")
+
+        trainer_kwargs["log_dir"] = log_dir
+        trainer_kwargs["save_dir"] = save_dir
+
+        trainer = JimmyTrainer(**trainer_kwargs)
         return trainer
 
 
