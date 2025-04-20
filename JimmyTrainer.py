@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 from rich import print as rprint
 from typing import Dict, Any
+import inspect
 
 
 class JimmyTrainer:
@@ -16,8 +17,9 @@ class JimmyTrainer:
                  dataset: JimmyDataset,
                  model: JimmyModel,
                  optimizer: torch.optim.Optimizer,
-                 lr_scheduler: JimmyLRScheduler,
+                 lr_scheduler: JimmyLRScheduler | torch.optim.lr_scheduler._LRScheduler,
                  comments: str,
+                 n_epochs: int = 100,
                  moving_avg: int = 100,
                  mixed_precision: bool = False,
                  compile_model: bool = False,
@@ -44,7 +46,20 @@ class JimmyTrainer:
         self.scaler = torch.cuda.amp.GradScaler() if mixed_precision else None
         self.clip_grad = clip_grad
         self.optimizer = optimizer
+
+        a = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=moving_avg)
+        a.step()
+
+        if not hasattr(lr_scheduler, 'update'):
+            # get number of arguments of lr_scheduler.step()
+            num_args = len(inspect.signature(lr_scheduler.step).parameters)
+            if num_args == 1:
+                lr_scheduler.update = lambda metric: lr_scheduler.step()
+            else:
+                lr_scheduler.update = lambda metric: lr_scheduler.step(metric)
+
         self.lr_scheduler = lr_scheduler
+        self.n_epochs = n_epochs
         self.moving_avg = moving_avg
         self.global_step = 0
 
@@ -96,7 +111,7 @@ class JimmyTrainer:
         return loss_dict, output_dict
 
 
-    def train(self, epochs: int) -> None:
+    def start(self) -> None:
         """
         Train the model for a specified number of epochs.
 
@@ -105,13 +120,13 @@ class JimmyTrainer:
         loss_names = self.model.loss_names
         log_tags = loss_names + ["LR"]
         # Initialize progress manager and tensorboard manager
-        pm = ProgressManager(self.dataset.n_batches, epochs, 5, 2, custom_fields=log_tags)
+        pm = ProgressManager(self.dataset.n_batches, self.n_epochs, 5, 2, custom_fields=log_tags)
         tm = TensorBoardManager(self.log_dir, log_tags, ['scalar'] * len(log_tags))
         ma_losses = {name: MovingAvg(self.moving_avg) for name in loss_names}
 
         best_loss = float('inf')
 
-        for epoch in range(epochs):
+        for epoch in range(self.n_epochs):
             loader = MultiThreadLoader(self.dataset, 3)
             for i, data_dict in enumerate(loader):
                 loss_dict, output_dict = self.trainStep(data_dict)
@@ -128,22 +143,4 @@ class JimmyTrainer:
                 best_loss = loss_sum
                 saveModels(os.path.join(self.save_dir, "best.pth"), model=self.model)
             saveModels(os.path.join(self.save_dir, "last.pth"), model=self.model)
-
-
-if __name__ == '__main__':
-    # Example usage
-    n_epochs = 100
-    dataset: JimmyDataset = MNISTSampleDataset(set_name="train", batch_size=64, drop_last=False, shuffle=True)
-    model: JimmyModel = SampleCNN()
-    optimizer: torch.optim.Optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
-    lr_scheduler: JimmyLRScheduler = JimmyLRScheduler(optimizer, init_lr=1e-5, peak_lr=2e-4, min_lr=1e-7,
-                                                      warmup_count=10, window_size=10, patience=10, decay_rate=0.5)
-
-    trainer: JimmyTrainer = JimmyTrainer(dataset,
-                                         model,
-                                         optimizer,
-                                         lr_scheduler,
-                                         comments="Training with Adam optimizer"
-                                         )
-    trainer.train(n_epochs)
 
