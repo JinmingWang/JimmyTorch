@@ -176,3 +176,6 @@ cython_debug/
 *csv
 
 *png
+
+# Elim Folders in ./Datasets/ because they contain datasets
+Datasets/MNIST
