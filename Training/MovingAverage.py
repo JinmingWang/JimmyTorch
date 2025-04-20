@@ -1,5 +1,6 @@
 import torch
 
+
 class MovingAvg():
     def __init__(self, window_size: int):
         self.window_size = window_size
