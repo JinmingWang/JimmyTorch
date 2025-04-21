@@ -140,3 +140,13 @@ class ProgressManager:
                 # Update the live display
                 self.live.update(self.render_progress_table(self.current_epoch))
                 time.sleep(self.refresh_interval)
+
+
+    def close(self):
+        """Close the live display."""
+        if hasattr(self, "live_thread"):
+            self.live.stop()
+            self.live_thread.join()
+            del self.live_thread
+            del self.live
+            self.console.print("[bold green]Training Completed![/bold green]")

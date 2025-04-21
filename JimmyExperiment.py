@@ -15,22 +15,34 @@ class JimmyExperiment:
     For other type of experiments, or your customized trainer, you should write a new experiment class to accommodate
     the new set of hyperparameters and constants.
     """
-    instance_keys = ["dataset", "model", "optimizer", "lr_scheduler"]
+    instance_keys = ["dataset", "model", "lr_scheduler"]
 
-    def __init__(self):
+    def __init__(self, comments: str):
+        self.comments = comments
+
+        self.model_cfg: dict[str, Any] = {
+            "class": SampleCNN,
+            "args": {
+                "optimizer_cls": torch.optim.Adam,
+                "optimizer_args": {"lr": 1e-5},
+                "mixed_precision": False,
+                "clip_grad": 0.0,
+            }
+        }
+
+        self.dataset_cfg: dict[str, Any] = {
+            "class": MNISTSampleDataset,
+            "args": {
+                "set_name": "train",
+                "batch_size": 64,
+                "drop_last": False,
+                "shuffle": True}
+        }
+
         # The default hyperparameters for the experiment.
-        self.hyper_params: dict[str, Any] = {
-            "dataset": MNISTDataset,
-            "dataset_args": {"set_name": "train", "batch_size": 64, "drop_last": False, "shuffle": True},
-
-            "model": SampleCNN,
-            "model_args": {},
-
-            "optimizer": torch.optim.Adam,
-            "optimizer_args": {"lr": 1e-5},
-
-            "lr_scheduler": JimmyLRScheduler,
-            "lr_scheduler_args": {
+        self.lr_scheduler_cfg: dict[str, Any] = {
+            "class": JimmyLRScheduler,
+            "args": {
                 "init_lr": 1e-5,
                 "peak_lr": 2e-4,
                 "min_lr": 1e-7,
@@ -45,29 +57,36 @@ class JimmyExperiment:
         self.constants = {
             "n_epochs": 100,
             "moving_avg": 100,
-            "mixed_precision": False,
             "compile_model": False,
-            "clip_grad": 0.0,
         }
 
 
     def __str__(self):
-        return f"Experiment with:\n\thyper_params={self.hyper_params}\n\tconstants={self.constants}"
+        return (f"Experiment{{\n"
+                f"\tdataset={self.dataset_cfg}\n"
+                f"\tmodel={self.model_cfg}\n"
+                f"\tlr_scheduler={self.lr_scheduler_cfg}\n"
+                f"\tconstants={self.constants}\n}}")
 
 
     def __repr__(self):
         return self.__str__()
 
 
-    def start(self, comments: str = "") -> JimmyTrainer:
+    def start(self) -> JimmyTrainer:
         """
         Start the experiment with the given comments.
         :param comments: Comments to be added to the Experiment.
         :return: A `JimmyTrainer` object with amost everything during a training session.
         """
-        rich_comments = f"{comments}.\n{self.__str__()}"
+        rprint(f"[#00ff00]--- Start Experiment \"{self.comments}\" ---[/#00ff00]")
 
-        trainer_kwargs = {k: self.hyper_params[k](**self.hyper_params[f"{k}_args"]) for k in self.instance_keys}
+        dataset = self.dataset_cfg["class"](**self.dataset_cfg["args"])
+        model = self.model_cfg["class"](**self.model_cfg["args"]).to(DEVICE)
+        model.initOptimizer()
+        lr_scheduler = self.lr_scheduler_cfg["class"](model.optimizer, **self.lr_scheduler_cfg["args"])
+
+        trainer_kwargs = {"dataset": dataset, "model": model, "lr_scheduler": lr_scheduler}
         trainer_kwargs.update(self.constants)
 
         # Create Experiment directories
@@ -84,7 +103,7 @@ class JimmyExperiment:
         with open(os.path.join(log_dir, "model_arch.txt"), "w") as f:
             f.write(str(trainer_kwargs["model"]))
         with open(os.path.join(log_dir, "comments.txt"), "w") as f:
-            f.write(rich_comments)
+            f.write(f"{self.comments}.\n{self.__str__()}")
 
         rprint(f"[blue]Save directory: {save_dir}.[/blue]")
         rprint(f"[blue]Log directory: {log_dir}.[/blue]")
@@ -93,6 +112,22 @@ class JimmyExperiment:
         trainer_kwargs["save_dir"] = save_dir
 
         trainer = JimmyTrainer(**trainer_kwargs)
+        trainer.start()
+
+        # Here, if we are not satisfied with the training results, we can start the trainer again
+        # i.e. continue training
+        # trainer.start()
+
+        # And If we are satisfied with the training results, mayby here we can do some testing
+        # Something like this:
+        # test_set = self.hyper_parameters["dataset"](
+        #     set_name="test",
+        #     batch_size=self.hyper_parameters["dataset_args"]["batch_size"],
+        #     drop_last=self.hyper_parameters["dataset_args"]["drop_last"],
+        #     shuffle=False
+        # )
+        # test(trainer.model, dataset=test_set, log_dir=log_dir)
+
         return trainer
 
 

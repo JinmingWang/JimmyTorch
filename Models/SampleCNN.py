@@ -1,4 +1,4 @@
-from .JimmyModel import JimmyModel
+from .JimmyModel import JimmyModel, Any
 from .Basics import Conv2DBnLeakyReLU, FCLayers
 import torch.nn as nn
 import torch
@@ -9,8 +9,8 @@ class SampleCNN(JimmyModel):
     SampleCNN is a simple CNN model for demonstration purposes.
     """
 
-    def __init__(self):
-        super(SampleCNN, self).__init__()
+    def __init__(self, *args, **kwards):
+        super(SampleCNN, self).__init__(*args, **kwards)
         self.conv1 = Conv2DBnLeakyReLU(1, 8, k=5, s=1, p=2)
         self.conv2 = Conv2DBnLeakyReLU(8, 16, k=3, s=1, p=1)
 
@@ -33,22 +33,38 @@ class SampleCNN(JimmyModel):
         return self.fc(x)
 
 
-    def forwardBackward(self, data_dict: dict, loss_scaler = None) -> tuple[dict, dict]:
-        """
-        Forward pass and backward pass of the model.
-        :param data_dict: a dictionary containing the input data
-        :param loss_scaler: a loss scaler for mixed precision training
-        :return: a dictionary containing the loss and output
-        """
-
-        if loss_scaler is not None:
-            with torch.autocast(device_type="cuda", dtype=torch.float16):
+    def trainStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+        if self.mixed_precision:
+            # Automatic Mixed Precision (AMP) forward pass and loss calculation
+            with torch.autocast(device_type=data_dict['input'].device, dtype=torch.float16):
                 output = self(data_dict['input'])
                 loss = self.loss_fn(output, data_dict['target'])
-            loss_scaler.scale(loss).backward()
+
+            # Backward pass with AMP
+            self.scaler.scale(loss).backward()
+
+            # Gradient clipping with AMP (if specified)
+            if self.clip_grad > 0:
+                self.scaler.unscale_(self.optimizer)
+                nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
+
+            # Optimizer step with AMP
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
         else:
+            # Standard forward pass and backward pass
             output = self(data_dict['input'])
             loss = self.loss_fn(output, data_dict['target'])
             loss.backward()
+
+            # Standard gradient clipping (if specified)
+            if self.clip_grad > 0:
+                nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
+
+            # Optimizer step
+            self.optimizer.step()
+
+        # Zero the gradients
+        self.optimizer.zero_grad()
 
         return {"CE_Loss": loss.item()}, {"output": output.detach()}

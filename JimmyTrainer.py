@@ -16,15 +16,12 @@ class JimmyTrainer:
     def __init__(self,
                  dataset: JimmyDataset,
                  model: JimmyModel,
-                 optimizer: torch.optim.Optimizer,
                  lr_scheduler: JimmyLRScheduler | torch.optim.lr_scheduler._LRScheduler,
                  log_dir: str,
                  save_dir: str,
                  n_epochs: int = 100,
                  moving_avg: int = 100,
-                 mixed_precision: bool = False,
-                 compile_model: bool = False,
-                 clip_grad: float = 0.0) -> None:
+                 compile_model: bool = False) -> None:
         """
         Initialize the trainer with a dataset, model, optimizer, and comments.
 
@@ -41,14 +38,11 @@ class JimmyTrainer:
         """
 
         self.dataset = dataset
-        self.model = model.to(self.device)
         if compile_model:
-            self.model: JimmyModel = torch.compile(self.model)
+            self.model: JimmyModel = torch.compile(model)
+        else:
+            self.model: JimmyModel = model
         self.compile_model = compile_model
-        self.mixed_precision = mixed_precision
-        self.scaler = torch.cuda.amp.GradScaler() if mixed_precision else None
-        self.clip_grad = clip_grad
-        self.optimizer = optimizer
 
         if not hasattr(lr_scheduler, 'update'):
             # get number of arguments of lr_scheduler.step()
@@ -63,34 +57,6 @@ class JimmyTrainer:
         self.save_dir = save_dir
         self.n_epochs = n_epochs
         self.moving_avg = moving_avg
-        self.global_step = 0
-
-
-    def trainStep(self, data_dict: Dict[str, Any]) -> (Dict[str, float], Dict[str, Any]):
-        """
-        Perform a single training step.
-
-        :param data_dict: A dictionary containing input data and target labels.
-        :return: A tuple containing:
-                 - loss_dict: A dictionary of loss values.
-                 - output_dict: A dictionary of model outputs.
-        """
-        loss_dict, output_dict = self.model.forwardBackward(data_dict, self.scaler)
-        if self.mixed_precision:
-            if self.clip_grad > 0:
-                self.scaler.unscale_(self.optimizer)
-                nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-        else:
-            if self.clip_grad > 0:
-                nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
-            self.optimizer.step()
-
-        self.optimizer.zero_grad()
-        self.global_step += 1
-
-        return loss_dict, output_dict
 
 
     def start(self) -> None:
@@ -111,18 +77,28 @@ class JimmyTrainer:
         for epoch in range(self.n_epochs):
             loader = MultiThreadLoader(self.dataset, 3)
             for i, data_dict in enumerate(loader):
-                loss_dict, output_dict = self.trainStep(data_dict)
+                # forward, backward, optimization
+                loss_dict, output_dict = self.model.trainStep(data_dict)
+
+                # Compute moving average of losses
                 for loss_name in loss_names:
                     ma_losses[loss_name].update(loss_dict[loss_name])
                     loss_dict[loss_name] = ma_losses[loss_name].get()
 
-                pm.update(epoch, i, LR=self.optimizer.param_groups[0]['lr'], **loss_dict)
+                # Update progress manager
+                pm.update(epoch, i, LR=self.model.lr, **loss_dict)
 
-            tm.log(self.global_step, LR=self.optimizer.param_groups[0]['lr'], **loss_dict)
+            # Update tensorboard
+            tm.log(pm.overall_progress, LR=self.model.lr, **loss_dict)
+
+            # Update learning rate scheduler
             loss_sum = sum([ma_losses[name].get() for name in loss_names])
             self.lr_scheduler.update(loss_sum)
+
+            # Model Saving
             if loss_sum < best_loss:
                 best_loss = loss_sum
                 saveModels(os.path.join(self.save_dir, "best.pth"), model=self.model)
             saveModels(os.path.join(self.save_dir, "last.pth"), model=self.model)
 
+        pm.close()
