@@ -74,6 +74,87 @@ class SequentialMultiIO(nn.Sequential):
         return dynamic_inputs
 
 
+class Rearrange(nn.Module):
+    """
+    A module that rearranges the input tensor according to the specified pattern.
+    :param pattern: The pattern to rearrange the input tensor.
+    """
+    def __init__(self, pattern: str, **kwargs):
+        super(Rearrange, self).__init__()
+        src_pattern, dst_pattern = pattern.split(" -> ")
+
+        operations = []
+
+        # --- STEP 1. locate all the brackets in the source pattern
+        brackets = []
+        dim_idx = 0
+        in_bracket = False
+        for i, c in enumerate(src_pattern):
+            if c == "(":
+                brackets.append([i + 1, None, dim_idx])
+                in_bracket = True
+            elif c == ")":
+                brackets[-1][1] = i
+                in_bracket = False
+            elif c == " " and not in_bracket:
+                dim_idx += 1
+
+        # --- STEP 2. break (unflatten) all brackets from back to front
+        for i in range(len(brackets) - 1, -1, -1):
+            start, end, dim_idx = brackets[i]
+
+            dims_within = src_pattern[start:end].split(" ")     # how many dimensions within the brackets
+
+            # need at least dims_within - 1 known dimensions
+            known_dims = [-1] * len(dims_within)
+            for dim_i, dim_symbol in enumerate(dims_within):
+                if dim_symbol in kwargs:
+                    known_dims[dim_i] = kwargs[dim_symbol]
+            if known_dims.count(-1) > 1:
+                raise ValueError(f"Cannot unflatten {src_pattern[start:end]} because too many unknown dimensions.")
+
+            operations.append(nn.Unflatten(dim_idx, tuple(known_dims)))
+
+        # --- STEP 3. Permute the dimensions in src to match the dst pattern
+        src_symbols = src_pattern.replace("(", "").replace(")", "").split(" ")
+        dst_symbols = dst_pattern.replace("(", "").replace(")", "").split(" ")
+        permute_dims = []
+        for dim_symbol in dst_symbols:
+            if dim_symbol in src_symbols:
+                permute_dims.append(src_symbols.index(dim_symbol))
+            else:
+                raise ValueError(f"Cannot permute {dim_symbol} because it is not in the source pattern.")
+        operations.append(Permute(*permute_dims))
+
+        # --- STEP 4. locate all the brackets in the destination pattern
+        brackets = []
+        dim_idx = 0
+        for i, c in enumerate(dst_pattern):
+            if c == "(":
+                brackets.append([dim_idx, None])
+            elif c == ")":
+                brackets[-1][1] = dim_idx
+            elif c == " ":
+                dim_idx += 1
+
+        # --- STEP 5. Merge (flatten) all brackets from back to front
+        for i in range(len(brackets) - 1, -1, -1):
+            start, end = brackets[i]
+            operations.append(nn.Flatten(start, end))
+
+        # --- STEP 6. Create the final operation
+        self.operations = nn.Sequential(*operations)
+
+
+    def forward(self, x):
+        """
+        Forward pass through the rearrange module.
+        :param x: The input tensor.
+        :return: The rearranged tensor.
+        """
+        return self.operations(x)
+
+
 def makeItResidual(forward_func):
     """
     Make a forward function residual.
