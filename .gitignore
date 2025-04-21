@@ -179,3 +179,9 @@ cython_debug/
 
 # Elim Folders in ./Datasets/ because they contain datasets
 Datasets/MNIST
+
+*.pth
+
+Runs
+
+Results
