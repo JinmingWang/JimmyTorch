@@ -21,7 +21,6 @@ class JimmyLRScheduler:
 
     def __init__(self,
                  optimizer: torch.optim.Optimizer,
-                 init_lr: float,
                  peak_lr: float,
                  min_lr: float,
                  warmup_count: int,
@@ -31,7 +30,6 @@ class JimmyLRScheduler:
                 ) -> None:
 
         self.optimizer = optimizer
-        self.init_lr = init_lr
         self.peak_lr = peak_lr
         self.min_lr = min_lr
         self.warmup_count = warmup_count
@@ -39,8 +37,11 @@ class JimmyLRScheduler:
         self.patience = patience
         self.decay_rate = decay_rate
 
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = 1e-7
+
         self.n_iter = 0
-        self.lr_without_cos = init_lr
+        self.lr_without_cos = peak_lr
 
         self.patience_count = 0
         self.metric_list = []
