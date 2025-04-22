@@ -1,7 +1,8 @@
-from .JimmyModel import JimmyModel, Any
-from .Basics import Conv2DBnLeakyReLU, FCLayers
+from Models.JimmyModel import JimmyModel, Any
+from Models.Basics import Conv2DBnLeakyReLU, FCLayers
 import torch.nn as nn
 import torch
+from .components import Block
 
 
 class SampleCNN(JimmyModel):
@@ -11,13 +12,9 @@ class SampleCNN(JimmyModel):
 
     def __init__(self, *args, **kwards):
         super(SampleCNN, self).__init__(*args, **kwards)
-        self.conv1 = Conv2DBnLeakyReLU(1, 8, k=5, s=1, p=2)
-        self.conv2 = Conv2DBnLeakyReLU(8, 16, k=3, s=1, p=1)
+        self.b1 = Block(1, 16)
 
-        self.conv3 = Conv2DBnLeakyReLU(16, 32, k=3, s=1, p=1)
-        self.conv4 = Conv2DBnLeakyReLU(32, 64, k=3, s=1, p=1)
-
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.b2 = Block(16, 64)
 
         self.flatten = nn.Flatten()
 
@@ -27,8 +24,8 @@ class SampleCNN(JimmyModel):
         self.loss_fn = nn.CrossEntropyLoss()
 
     def forward(self, x):
-        x = self.pool(self.conv2(self.conv1(x)))
-        x = self.pool(self.conv4(self.conv3(x)))
+        x = self.b1(x)
+        x = self.b2(x)
         x = self.flatten(x)
         return self.fc(x)
 
