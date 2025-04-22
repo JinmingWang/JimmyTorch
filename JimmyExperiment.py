@@ -43,7 +43,6 @@ class JimmyExperiment:
         self.lr_scheduler_cfg: dict[str, Any] = {
             "class": JimmyLRScheduler,
             "args": {
-                "init_lr": 1e-5,
                 "peak_lr": 2e-4,
                 "min_lr": 1e-7,
                 "warmup_count": 10,
@@ -92,7 +91,7 @@ class JimmyExperiment:
         # Create Experiment directories
         now_str = datetime.now().strftime("%y%m%d_%H%M%S")
         dataset_name = trainer_kwargs["dataset"].__class__.__name__
-        model_name = trainer_kwargs["model"].__class__.__name__
+        model_name = model.__class__.__name__
         save_dir = f"Runs/{dataset_name}/{model_name}/{now_str}/"
         log_dir = save_dir
 
@@ -101,7 +100,8 @@ class JimmyExperiment:
             os.makedirs(save_dir)
 
         with open(os.path.join(log_dir, "model_arch.txt"), "w") as f:
-            f.write(str(trainer_kwargs["model"]))
+            f.write(str(model))
+
         with open(os.path.join(log_dir, "comments.txt"), "w") as f:
             f.write(f"{self.comments}.\n{self.__str__()}")
 

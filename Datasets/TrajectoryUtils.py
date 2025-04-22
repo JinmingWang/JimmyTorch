@@ -2,8 +2,8 @@ from .DatasetUtils import *
 import matplotlib.pyplot as plt
 
 
-Traj: FT32[Tensor, "L 2"]
-BatchTraj: FT32[Tensor, "B L 2"]
+Traj = FT32[Tensor, "L 2"]
+BatchTraj = FT32[Tensor, "B L 2"]
 
 
 def getLng(trajs: BatchTraj | Traj) -> Any:
