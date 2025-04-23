@@ -5,3 +5,6 @@ from .DatasetUtils import DEVICE
 
 from .TrajectoryUtils import Traj, BatchTraj, getLat, getLng, computeDistance, padTraj, flipTrajWestEast, \
     flipTrajNorthSouth, centerTraj, zScoreTraj, minMaxTraj, rotateTraj, interpTraj, plotTraj
+
+from typing import *
+import torch
