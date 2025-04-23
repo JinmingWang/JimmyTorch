@@ -1,5 +1,5 @@
-from Models.JimmyModel import JimmyModel, Any
-from Models.Basics import Conv2DBnLeakyReLU, FCLayers
+from ..JimmyModel import JimmyModel, Any
+from ..Basics import Conv2DBnLeakyReLU, FCLayers
 import torch.nn as nn
 import torch
 from .components import Block

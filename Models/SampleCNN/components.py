@@ -1,4 +1,4 @@
-from Models.Basics import Conv2DBnLeakyReLU, FCLayers
+from ..Basics import Conv2DBnLeakyReLU, FCLayers
 import torch.nn as nn
 
 
