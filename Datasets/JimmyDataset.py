@@ -42,7 +42,7 @@ class JimmyDataset():
 
 
     def __next__(self):
-        if self.iter_idx > self.n_batches:
+        if self.iter_idx >= self.n_batches:
             raise StopIteration
         self.iter_idx += 1
         return self.__getitem__(self.iter_idx)

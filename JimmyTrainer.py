@@ -65,7 +65,7 @@ class JimmyTrainer:
 
         :param epochs: The number of epochs to train the model.
         """
-        loss_names = self.model.loss_names
+        loss_names = self.model.train_loss_names
         log_tags = loss_names + ["LR"]
         # Initialize progress manager and tensorboard manager
         pm = ProgressManager(self.dataset.n_batches, self.n_epochs, 5, 2, custom_fields=log_tags)
