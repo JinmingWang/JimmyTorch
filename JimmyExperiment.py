@@ -33,7 +33,6 @@ class JimmyExperiment:
         self.dataset_cfg: dict[str, Any] = {
             "class": MNISTSampleDataset,
             "args": {
-                "set_name": "train",
                 "batch_size": 64,
                 "drop_last": False,
                 "shuffle": True}
@@ -80,17 +79,18 @@ class JimmyExperiment:
         """
         rprint(f"[#00ff00]--- Start Experiment \"{self.comments}\" ---[/#00ff00]")
 
-        dataset = self.dataset_cfg["class"](**self.dataset_cfg["args"])
+        train_set = self.dataset_cfg["class"](set_name="train", **self.dataset_cfg["args"])
+        eval_set = self.dataset_cfg["class"](set_name="eval", **self.dataset_cfg["args"])
         model = self.model_cfg["class"](**self.model_cfg["args"]).to(DEVICE)
         model.initOptimizer()
         lr_scheduler = self.lr_scheduler_cfg["class"](model.optimizer, **self.lr_scheduler_cfg["args"])
 
-        trainer_kwargs = {"dataset": dataset, "model": model, "lr_scheduler": lr_scheduler}
+        trainer_kwargs = {"train_set": train_set, "eval_set": eval_set, "model": model, "lr_scheduler": lr_scheduler}
         trainer_kwargs.update(self.constants)
 
         # Create Experiment directories
         now_str = datetime.now().strftime("%y%m%d_%H%M%S")
-        dataset_name = trainer_kwargs["dataset"].__class__.__name__
+        dataset_name = trainer_kwargs["train_set"].__class__.__name__
         model_name = model.__class__.__name__
         save_dir = f"Runs/{dataset_name}/{model_name}/{now_str}/"
         log_dir = save_dir

@@ -33,17 +33,22 @@ def computeDistance(trajs: BatchTraj | Traj) -> Any:
     return torch.sqrt(torch.sum(torch.square(trajs[..., 1:] - trajs[..., :-1]), dim=-1))
 
 
-def padTraj(traj: Traj, max_len: int, pad_value: float = 0.0) -> Traj:
+def cropPadTraj(traj: Traj, target_len: int, pad_value: float = 0.0) -> Traj:
     """
     Pad a trajectory to the maximum length.
 
     :param traj: Trajectory to be padded.
-    :param max_len: Maximum length of the trajectory.
+    :param target_len: Maximum length of the trajectory.
     :param pad_value: Value to pad with. Default is 0.0.
     :return: Padded trajectory.
     """
-    pad_size = max_len - traj.shape[-1]
-    return torch.nn.functional.pad(traj, (0, pad_size), value=pad_value)
+    if traj.shape[0] >= target_len:
+        return traj[:target_len]
+    elif traj.shape[0] < target_len:
+        pad_size = target_len - traj.shape[0]
+        return torch.nn.functional.pad(traj, (0, 0, 0, pad_size), value=pad_value)
+    else:
+        return traj
 
 
 def flipTrajWestEast(trajs: BatchTraj | Traj) -> BatchTraj | Traj:
