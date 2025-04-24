@@ -7,6 +7,7 @@ from typing import *
 from datetime import datetime
 import os
 from rich import print as rprint
+import pandas as pd
 
 
 class JimmyExperiment:
@@ -15,7 +16,6 @@ class JimmyExperiment:
     For other type of experiments, or your customized trainer, you should write a new experiment class to accommodate
     the new set of hyperparameters and constants.
     """
-    instance_keys = ["dataset", "model", "lr_scheduler"]
 
     def __init__(self, comments: str):
         self.comments = comments
@@ -114,19 +114,14 @@ class JimmyExperiment:
         trainer = JimmyTrainer(**trainer_kwargs)
         trainer.start()
 
-        # Here, if we are not satisfied with the training results, we can start the trainer again
-        # i.e. continue training
-        # trainer.start()
+        rprint(f"[blue]Training done. Start testing.[/blue]")
+        test_set = self.dataset_cfg["class"](set_name="test", **self.dataset_cfg["args"])
+        test_losses = trainer.evaluate(test_set, compute_avg=False)
 
-        # And If we are satisfied with the training results, mayby here we can do some testing
-        # Something like this:
-        # test_set = self.hyper_parameters["dataset"](
-        #     set_name="test",
-        #     batch_size=self.hyper_parameters["dataset_args"]["batch_size"],
-        #     drop_last=self.hyper_parameters["dataset_args"]["drop_last"],
-        #     shuffle=False
-        # )
-        # test(trainer.model, dataset=test_set, log_dir=log_dir)
+        test_report = pd.DataFrame.from_dict(test_losses)
+        test_report.to_csv(os.path.join(log_dir, "test_report.csv"))
+
+        rprint(f"[blue]Testing done. Reports saved to: {os.path.join(log_dir, 'test_report.csv')}.[/blue]")
 
         return trainer
 

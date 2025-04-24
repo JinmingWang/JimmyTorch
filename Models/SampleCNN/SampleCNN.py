@@ -20,8 +20,9 @@ class SampleCNN(JimmyModel):
 
         self.fc = FCLayers([64 * 7 * 7, 256, 10], act=nn.LeakyReLU(inplace=True, negative_slope=0.01))
 
-        self.loss_names = ["CE_Loss"]
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.train_loss_names = ["Train_CE"]
+        self.eval_loss_names = ["Eval_CE"]
+        self.ce_loss = nn.CrossEntropyLoss()
 
     def forward(self, x):
         x = self.b1(x)
@@ -35,7 +36,7 @@ class SampleCNN(JimmyModel):
             # Automatic Mixed Precision (AMP) forward pass and loss calculation
             with torch.autocast(device_type=data_dict['input'].device, dtype=torch.float16):
                 output = self(data_dict['input'])
-                loss = self.loss_fn(output, data_dict['target'])
+                loss = self.ce_loss(output, data_dict['target'])
 
             # Backward pass with AMP
             self.scaler.scale(loss).backward()
@@ -51,7 +52,7 @@ class SampleCNN(JimmyModel):
         else:
             # Standard forward pass and backward pass
             output = self(data_dict['input'])
-            loss = self.loss_fn(output, data_dict['target'])
+            loss = self.ce_loss(output, data_dict['target'])
             loss.backward()
 
             # Standard gradient clipping (if specified)
@@ -64,4 +65,11 @@ class SampleCNN(JimmyModel):
         # Zero the gradients
         self.optimizer.zero_grad()
 
-        return {"CE_Loss": loss.item()}, {"output": output.detach()}
+        return {"Train_CE": loss.item()}, {"output": output.detach()}
+
+
+    def evalStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+        with torch.no_grad():
+            output = self(data_dict['input']).detach()
+            loss = self.ce_loss(output, data_dict['target']).item()
+        return {"Eval_CE": loss}, {"output": output.detach()}

@@ -14,18 +14,20 @@ class JimmyTrainer:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def __init__(self,
-                 dataset: JimmyDataset,
+                 train_set: JimmyDataset,
+                 eval_set: JimmyDataset,
                  model: JimmyModel,
                  lr_scheduler: JimmyLRScheduler | torch.optim.lr_scheduler._LRScheduler,
                  log_dir: str,
                  save_dir: str,
-                 n_epochs: int = 100,
-                 moving_avg: int = 100,
-                 compile_model: bool = False) -> None:
+                 n_epochs: int,
+                 moving_avg: int,
+                 compile_model: bool,
+                 eval_interval: int) -> None:
         """
         Initialize the trainer with a dataset, model, optimizer, and comments.
 
-        :param dataset: A `JimmyDataset` object that provides the training data. It must return a dictionary containing the input data and target labels.
+        :param train_set: A `JimmyDataset` object that provides the training data. It must return a dictionary containing the input data and target labels.
         :param model: A `JimmyModel` object. The model must implement a `forwardBackward` function that returns a dictionary of loss and output, and must have a `loss_names` attribute that lists the keys of the loss dictionary.
         :param optimizer: A PyTorch optimizer used to update the model parameters.
         :param lr_scheduler: A learning rate scheduler. It can be a `JimmyLRScheduler` or a PyTorch learning rate scheduler. The scheduler must implement an `update` method that takes the current loss as an argument.
@@ -37,7 +39,8 @@ class JimmyTrainer:
         :param clip_grad: A float specifying the maximum gradient norm for gradient clipping. Default is 0.0 (no clipping).
         """
 
-        self.dataset = dataset
+        self.train_set = train_set
+        self.eval_set = eval_set
         if compile_model:
             self.model: JimmyModel = torch.compile(model)
         else:
@@ -57,6 +60,7 @@ class JimmyTrainer:
         self.save_dir = save_dir
         self.n_epochs = n_epochs
         self.moving_avg = moving_avg
+        self.eval_interval = eval_interval
 
 
     def start(self) -> None:
@@ -65,23 +69,23 @@ class JimmyTrainer:
 
         :param epochs: The number of epochs to train the model.
         """
-        loss_names = self.model.train_loss_names
-        log_tags = loss_names + ["LR"]
+        pm_log_tags = self.model.train_loss_names + ["LR"]
+        tm_log_tags = self.model.train_loss_names + self.model.eval_loss_names + ["LR"]
         # Initialize progress manager and tensorboard manager
-        pm = ProgressManager(self.dataset.n_batches, self.n_epochs, 5, 2, custom_fields=log_tags)
-        tm = TensorBoardManager(self.log_dir, log_tags, ['scalar'] * len(log_tags))
-        ma_losses = {name: MovingAvg(self.moving_avg) for name in loss_names}
+        pm = ProgressManager(self.train_set.n_batches, self.n_epochs, 5, 2, custom_fields=pm_log_tags)
+        tm = TensorBoardManager(self.log_dir, tags=tm_log_tags, value_types=["scalar"] * len(tm_log_tags))
+        ma_losses = {name: MovingAvg(self.moving_avg) for name in self.model.train_loss_names}
 
         best_loss = float('inf')
 
         for epoch in range(self.n_epochs):
-            loader = MultiThreadLoader(self.dataset, 3)
+            loader = MultiThreadLoader(self.train_set, 3)
             for i, data_dict in enumerate(loader):
                 # forward, backward, optimization
                 loss_dict, output_dict = self.model.trainStep(data_dict)
 
                 # Compute moving average of losses
-                for loss_name in loss_names:
+                for loss_name in self.model.train_loss_names:
                     ma_losses[loss_name].update(loss_dict[loss_name])
                     loss_dict[loss_name] = ma_losses[loss_name].get()
 
@@ -92,13 +96,37 @@ class JimmyTrainer:
             tm.log(pm.overall_progress, LR=self.model.lr, **loss_dict)
 
             # Update learning rate scheduler
-            loss_sum = sum([ma_losses[name].get() for name in loss_names])
-            self.lr_scheduler.update(loss_sum)
+            self.lr_scheduler.update(loss_dict["Train_loss"])
 
-            # Model Saving
-            if loss_sum < best_loss:
-                best_loss = loss_sum
-                saveModels(os.path.join(self.save_dir, "best.pth"), model=self.model)
-            saveModels(os.path.join(self.save_dir, "last.pth"), model=self.model)
+            if epoch % self.eval_interval == 0:
+                eval_losses = self.evaluate(self.eval_set)
+
+                # 更新tensorboard
+                tm.log(pm.overall_progress, **eval_losses)
+
+                # 根据eval_losses["MAE"]来判断最好的模型
+                eval_loss = eval_losses["Eval_loss"]
+                if eval_loss < best_loss:
+                    best_loss = eval_loss
+                    saveModels(os.path.join(self.save_dir, "best.pth"), model=self.model)
 
         pm.close()
+
+
+    def evaluate(self, dataset: JimmyDataset, compute_avg: bool=True):
+        n_batches = dataset.n_batches
+        eval_losses = {name: torch.zeros(n_batches).to(DEVICE) for name in self.model.eval_loss_names}
+        self.model.eval()
+
+        for i, data_dict in enumerate(dataset):
+            loss_dict, output_dict = self.model.evalStep(data_dict)
+
+            for name in self.model.eval_loss_names:
+                eval_losses[name][i] = loss_dict[name]
+
+        self.model.train()
+
+        if compute_avg:
+            return {name: torch.mean(eval_losses[name]).item() for name in self.model.eval_loss_names}
+
+        return {name: eval_losses[name].cpu().numpy() for name in self.model.eval_loss_names}

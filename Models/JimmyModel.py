@@ -17,8 +17,9 @@ class JimmyModel(nn.Module):
                  mixed_precision: bool = False,
                  clip_grad: float = 0.0):
         super(JimmyModel, self).__init__()
-        self.train_loss_names = ["loss"]
-        self.train_loss_fn = nn.CrossEntropyLoss()
+        self.train_loss_names = ["Train_loss"]
+        self.eval_loss_names = ["Eval_loss"]
+        self.loss_fn = nn.CrossEntropyLoss()
         self.optimizer_cls = optimizer_cls
         self.optimizer_args = optimizer_args
         self.mixed_precision = mixed_precision
@@ -54,7 +55,7 @@ class JimmyModel(nn.Module):
             # Automatic Mixed Precision (AMP) forward pass and loss calculation
             with torch.autocast(device_type=data_dict['data'].device, dtype=torch.float16):
                 output = self(data_dict['data'])
-                loss = self.train_loss_fn(output, data_dict['target'])
+                loss = self.loss_fn(output, data_dict['target'])
 
             # Backward pass with AMP
             self.scaler.scale(loss).backward()
@@ -70,7 +71,7 @@ class JimmyModel(nn.Module):
         else:
             # Standard forward pass and backward pass
             output = self(data_dict['data'])
-            loss = self.train_loss_fn(output, data_dict['target'])
+            loss = self.loss_fn(output, data_dict['target'])
             loss.backward()
 
             # Standard gradient clipping (if specified)
@@ -83,4 +84,10 @@ class JimmyModel(nn.Module):
         # Zero the gradients
         self.optimizer.zero_grad()
 
-        return {"loss": loss.item()}, {"output": output.detach()}
+        return {"Train_loss": loss.item()}, {"output": output.detach()}
+
+    def evalStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+        with torch.no_grad():
+            output = self(data_dict['data']).detach()
+            loss = self.loss_fn(output, data_dict['target']).item()
+        return {"Eval_loss": loss}, {"output": output.detach()}
