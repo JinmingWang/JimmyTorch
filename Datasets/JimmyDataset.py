@@ -50,7 +50,7 @@ class JimmyDataset():
     def __getitem__(self, idx):
         start = (idx - 1) * self.batch_size
         end = min(start + self.batch_size, self.n_samples)
-        indices = self.__indices[start:end]
+        indices = self._indices[start:end]
         return {
             'indices': indices,
             'input': torch.randn(len(indices), 10),
