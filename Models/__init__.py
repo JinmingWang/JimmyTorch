@@ -9,3 +9,9 @@ from .ModelUtils import Transpose, Permute, Reshape, PrintShape, SequentialMulti
 from .JimmyModel import JimmyModel
 
 from .SampleCNN import SampleCNN
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as func
+
+Tensor = torch.Tensor
