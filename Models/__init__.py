@@ -14,4 +14,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as func
 
+from typing import *
+
 Tensor = torch.Tensor
