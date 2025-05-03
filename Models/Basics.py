@@ -146,3 +146,66 @@ class PosEncoderRotary(_nn.Module):
             x[..., 1] * cos + x[..., 0] * sin
         ), dim=-1)
         return x_rotated.flatten(-2)
+
+
+class PatchMaker1D(_nn.Module):
+    """
+    Patch maker for 1D data.
+    :param patch_size: Size of each patch.
+    :param stride: Stride for the sliding window.
+    :param patch_as_vector: If True, patches are flattened into vectors.
+    """
+    def __init__(self, patch_size: int, stride: int=1, patch_as_vector: bool=True):
+        super().__init__()
+        self.patch_size = patch_size
+        self.stride = stride
+        self.patch_as_vector = patch_as_vector
+
+    def forward(self, x: _torch.Tensor) -> _torch.Tensor:
+        """
+        Applies the patch maker to the input tensor.
+        :param x: Input tensor of shape (batch_size, seq_len, dim).
+        :return: Tensor with patches extracted.
+        """
+        patches = x.unfold(1, self.patch_size, self.stride).transpose(-1, -2).contiguous()
+        # Now patches: (B, num_patches, patch_size, dim)
+        if self.patch_as_vector:
+            return patches.flatten(2)    # (B, num_patches, patch_size * dim)
+        return patches
+
+
+class PatchMaker2D(_nn.Module):
+    """
+    Patch maker for 2D data.
+    :param patch_size: Size of each patch.
+    :param stride: Stride for the sliding window.
+    :param patch_as_vector: If True, patches are flattened into vectors.
+    """
+    def __init__(self, patch_size: int, stride: int=1, patch_as_vector: bool=True, flatten: bool=True):
+        super().__init__()
+        self.patch_size = patch_size
+        self.stride = stride
+        self.patch_as_vector = patch_as_vector
+        self.flatten = flatten
+
+    def forward(self, x: _torch.Tensor) -> _torch.Tensor:
+        """
+        Applies the patch maker to the input tensor.
+        :param x: Input tensor of shape (batch_size, channels, height, width).
+        :return: Tensor with patches extracted.
+        """
+        patches = x.unfold(2, self.patch_size, self.stride).unfold(3, self.patch_size, self.stride).contiguous()
+        # Now patches: (B, C, num_patches_h, num_patches_w, patch_size, patch_size)
+        patches = patches.permute(0, 4, 5, 1, 2, 3).contiguous()
+        # Now patches: (B, patch_size, patch_size, C, num_patches_h, num_patches_w)
+        if self.patch_as_vector:
+            patches = patches.flatten(1, 3)    # (B, patch_size * patch_size * C, num_patches_h, num_patches_w)
+        if self.flatten:
+            patches = patches.flatten(2)    # (B, patch_size * patch_size * C, num_patches_h * num_patches_w)
+        return patches
+
+
+if __name__ == '__main__':
+    x = _torch.randn(1, 64, 4)
+    y = PatchMaker1D(8, 8, False)(x)
+    print(y.shape)
