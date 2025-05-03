@@ -1,5 +1,6 @@
 import torch.nn as _nn
 import torch as _torch
+from typing import Literal as _Literal
 
 _norm_options = {
     "Bn": {"1D": _nn.BatchNorm1d, "2D": _nn.BatchNorm2d},
@@ -77,10 +78,11 @@ class FCLayers(_nn.Sequential):
 
 
 class PosEncoderSinusoidal(_nn.Module):
-    def __init__(self, dim: int, max_len: int=5000):
+    def __init__(self, dim: int, max_len: int=5000, merge_mode: _Literal["add", "concat"] = "add"):
         super().__init__()
         self.dim = dim
         self.max_len = max_len
+        self.merge_mode = merge_mode
 
         self.register_buffer("pe", _torch.zeros(max_len, dim))
         position = _torch.arange(0, max_len, dtype=_torch.float).unsqueeze(1)
@@ -95,15 +97,18 @@ class PosEncoderSinusoidal(_nn.Module):
         :param x: Input tensor of shape (batch_size, seq_len, dim).
         :return: Tensor with positional encoding added, of the same shape as input.
         """
-        x = x + self.pe[:, :x.size(1)]
-        return x
+        if self.merge_mode == "add":
+            return x + self.pe[:, :x.size(1)]
+        else:
+            return _torch.cat((x, self.pe[:, :x.size(1)]), dim=-1)
 
 
 class PosEncoderLearned(_nn.Module):
-    def __init__(self, dim: int, max_len: int=5000):
+    def __init__(self, dim: int, max_len: int=5000, merge_mode: _Literal["add", "concat"] = "add"):
         super().__init__()
         self.dim = dim
         self.max_len = max_len
+        self.merge_mode = merge_mode
 
         self.pe = _nn.Embedding(max_len, dim)
         self.register_buffer("pe_idx", _torch.arange(max_len).unsqueeze(0))
@@ -114,8 +119,10 @@ class PosEncoderLearned(_nn.Module):
         :param x: Input tensor of shape (batch_size, seq_len, dim).
         :return: Tensor with positional encoding added, of the same shape as input.
         """
-        x = x + self.pe(self.pe_idx[:, :x.size(1)])
-        return x
+        if self.merge_mode == "add":
+            return x + self.pe(self.pe_idx[:, :x.size(1)])
+        else:
+            return _torch.cat((x, self.pe(self.pe_idx[:, :x.size(1)])), dim=-1)
 
 
 class PosEncoderRotary(_nn.Module):
