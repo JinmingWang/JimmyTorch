@@ -22,10 +22,10 @@ def _ConvNDNormActCreator(class_name: str) -> type:
     norm = _norm_options[norm_name][ND]
     act = _activations[act_name]
 
-    def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1):
+    def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1, gn_groups: int=8):
         _nn.Sequential.__init__(self,
                                 conv(c_in, c_out, k, s, p, d, g, bias=False),
-                                norm(8, c_out) if norm_name == "Gn" else norm(c_out),
+                                norm(gn_groups, c_out) if norm_name == "Gn" else norm(c_out),
                                 act(inplace=True)
                                 )
 
@@ -65,22 +65,20 @@ Conv2DGnLeakyReLU = _ConvNDNormActCreator("Conv2DGnLeakyReLU")
 Conv2DGnGELU =      _ConvNDNormActCreator("Conv2DGnGELU")
 Conv2DGnSiLU =     _ConvNDNormActCreator("Conv2DGnSiLU")
 
-
 def _NormActConvNDCreator(class_name: str) -> type:
     norm_name, act_name, ND = class_name[:2], class_name[2:-6], class_name[-2:]
 
     norm = _norm_options[norm_name][ND]
     act = _activations[act_name]
 
-    def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1):
+    def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1, gn_groups: int=8):
         _nn.Sequential.__init__(self,
-                                norm(8, c_in) if norm_name == "Gn" else norm(c_in),
+                                norm(gn_groups, c_in) if norm_name == "Gn" else norm(c_in),
                                 act(inplace=True),
                                 _nn.Conv1d(c_in, c_out, k, s, p, d, g)
                                 )
 
     return type(class_name, (_nn.Sequential,), {"__init__": initFunc, "__name__": class_name})
-
 
 # *Conv1D
 # Bn*Conv1D
