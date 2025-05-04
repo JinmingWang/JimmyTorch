@@ -12,7 +12,7 @@ _activations = {
     "ReLU": _nn.ReLU,
     "LeakyReLU": _nn.LeakyReLU,
     "GELU": _nn.GELU,
-    "Swish": _nn.SiLU,
+    "SiLU": _nn.SiLU,
 }
 
 def _ConvNDNormActCreator(class_name: str) -> type:
@@ -25,7 +25,7 @@ def _ConvNDNormActCreator(class_name: str) -> type:
     def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1):
         _nn.Sequential.__init__(self,
                                 conv(c_in, c_out, k, s, p, d, g, bias=False),
-                                norm(32, c_out) if norm_name == "Gn" else norm(c_out),
+                                norm(8, c_out) if norm_name == "Gn" else norm(c_out),
                                 act(inplace=True)
                                 )
 
@@ -36,34 +36,86 @@ def _ConvNDNormActCreator(class_name: str) -> type:
 Conv1DBnReLU =      _ConvNDNormActCreator("Conv1DBnReLU")
 Conv1DBnLeakyReLU = _ConvNDNormActCreator("Conv1DBnLeakyReLU")
 Conv1DBnGELU =      _ConvNDNormActCreator("Conv1DBnGELU")
-Conv1DBnSwish =     _ConvNDNormActCreator("Conv1DBnSwish")
+Conv1DBnSiLU =     _ConvNDNormActCreator("Conv1DBnSiLU")
 # Conv1DIn*
 Conv1DInReLU =      _ConvNDNormActCreator("Conv1DInReLU")
 Conv1DInLeakyReLU = _ConvNDNormActCreator("Conv1DInLeakyReLU")
 Conv1DInGELU =      _ConvNDNormActCreator("Conv1DInGELU")
-Conv1DInSwish =     _ConvNDNormActCreator("Conv1DInSwish")
+Conv1DInSiLU =     _ConvNDNormActCreator("Conv1DInSiLU")
 # Conv1DGn*
 Conv1DGnReLU =      _ConvNDNormActCreator("Conv1DGnReLU")
 Conv1DGnLeakyReLU = _ConvNDNormActCreator("Conv1DGnLeakyReLU")
 Conv1DGnGELU =      _ConvNDNormActCreator("Conv1DGnGELU")
-Conv1DGnSwish =     _ConvNDNormActCreator("Conv1DGnSwish")
+Conv1DGnSiLU =     _ConvNDNormActCreator("Conv1DGnSiLU")
 
 # Conv2D*
 # Conv2DBn*
 Conv2DBnReLU =      _ConvNDNormActCreator("Conv2DBnReLU")
 Conv2DBnLeakyReLU = _ConvNDNormActCreator("Conv2DBnLeakyReLU")
 Conv2DBnGELU =      _ConvNDNormActCreator("Conv2DBnGELU")
-Conv2DBnSwish =     _ConvNDNormActCreator("Conv2DBnSwish")
+Conv2DBnSiLU =     _ConvNDNormActCreator("Conv2DBnSiLU")
 # Conv2DIn*
 Conv2DInReLU =      _ConvNDNormActCreator("Conv2DInReLU")
 Conv2DInLeakyReLU = _ConvNDNormActCreator("Conv2DInLeakyReLU")
 Conv2DInGELU =      _ConvNDNormActCreator("Conv2DInGELU")
-Conv2DInSwish =     _ConvNDNormActCreator("Conv2DInSwish")
+Conv2DInSiLU =     _ConvNDNormActCreator("Conv2DInSiLU")
 # Conv2DGn*
 Conv2DGnReLU =      _ConvNDNormActCreator("Conv2DGnReLU")
 Conv2DGnLeakyReLU = _ConvNDNormActCreator("Conv2DGnLeakyReLU")
 Conv2DGnGELU =      _ConvNDNormActCreator("Conv2DGnGELU")
-Conv2DGnSwish =     _ConvNDNormActCreator("Conv2DGnSwish")
+Conv2DGnSiLU =     _ConvNDNormActCreator("Conv2DGnSiLU")
+
+
+def _NormActConvNDCreator(class_name: str) -> type:
+    norm_name, act_name, ND = class_name[:2], class_name[2:-6], class_name[-2:]
+
+    norm = _norm_options[norm_name][ND]
+    act = _activations[act_name]
+
+    def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1):
+        _nn.Sequential.__init__(self,
+                                norm(8, c_in) if norm_name == "Gn" else norm(c_in),
+                                act(inplace=True),
+                                _nn.Conv1d(c_in, c_out, k, s, p, d, g)
+                                )
+
+    return type(class_name, (_nn.Sequential,), {"__init__": initFunc, "__name__": class_name})
+
+
+# *Conv1D
+# Bn*Conv1D
+BnReLUConv1D =      _NormActConvNDCreator("BnReLUConv1D")
+BnLeakyReLUConv1D = _NormActConvNDCreator("BnLeakyReLUConv1D")
+BnGELUConv1D =      _NormActConvNDCreator("BnGELUConv1D")
+BnSiLUConv1D =     _NormActConvNDCreator("BnSiLUConv1D")
+# In*Conv1D
+InReLUConv1D =      _NormActConvNDCreator("InReLUConv1D")
+InLeakyReLUConv1D = _NormActConvNDCreator("InLeakyReLUConv1D")
+InGELUConv1D =      _NormActConvNDCreator("InGELUConv1D")
+InSiLUConv1D =     _NormActConvNDCreator("InSiLUConv1D")
+# Gn*Conv1D
+GnReLUConv1D =      _NormActConvNDCreator("GnReLUConv1D")
+GnLeakyReLUConv1D = _NormActConvNDCreator("GnLeakyReLUConv1D")
+GnGELUConv1D =      _NormActConvNDCreator("GnGELUConv1D")
+GnSiLUConv1D =     _NormActConvNDCreator("GnSiLUConv1D")
+
+# *Conv2D
+# Bn*Conv2D
+BnReLUConv2D =      _NormActConvNDCreator("BnReLUConv2D")
+BnLeakyReLUConv2D = _NormActConvNDCreator("BnLeakyReLUConv2D")
+BnGELUConv2D =      _NormActConvNDCreator("BnGELUConv2D")
+BnSiLUConv2D =     _NormActConvNDCreator("BnSiLUConv2D")
+# In*Conv2D
+InReLUConv2D =      _NormActConvNDCreator("InReLUConv2D")
+InLeakyReLUConv2D = _NormActConvNDCreator("InLeakyReLUConv2D")
+InGELUConv2D =      _NormActConvNDCreator("InGELUConv2D")
+InSiLUConv2D =     _NormActConvNDCreator("InSiLUConv2D")
+# Gn*Conv2D
+GnReLUConv2D =      _NormActConvNDCreator("GnReLUConv2D")
+GnLeakyReLUConv2D = _NormActConvNDCreator("GnLeakyReLUConv2D")
+GnGELUConv2D =      _NormActConvNDCreator("GnGELUConv2D")
+GnSiLUConv2D =     _NormActConvNDCreator("GnSiLUConv2D")
+
 
 
 class FCLayers(_nn.Sequential):
