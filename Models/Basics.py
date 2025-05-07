@@ -68,6 +68,7 @@ Conv2DGnSiLU =     _ConvNDNormActCreator("Conv2DGnSiLU")
 def _NormActConvNDCreator(class_name: str) -> type:
     norm_name, act_name, ND = class_name[:2], class_name[2:-6], class_name[-2:]
 
+    conv = _nn.Conv1d if ND == "1D" else _nn.Conv2d
     norm = _norm_options[norm_name][ND]
     act = _activations[act_name]
 
@@ -75,7 +76,7 @@ def _NormActConvNDCreator(class_name: str) -> type:
         _nn.Sequential.__init__(self,
                                 norm(gn_groups, c_in) if norm_name == "Gn" else norm(c_in),
                                 act(inplace=True),
-                                _nn.Conv1d(c_in, c_out, k, s, p, d, g)
+                                conv(c_in, c_out, k, s, p, d, g)
                                 )
 
     return type(class_name, (_nn.Sequential,), {"__init__": initFunc, "__name__": class_name})
