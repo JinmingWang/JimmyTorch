@@ -148,10 +148,11 @@ class PosEncoderSinusoidal(_nn.Module):
         :param x: Input tensor of shape (batch_size, seq_len, dim).
         :return: Tensor with positional encoding added, of the same shape as input.
         """
+        B, L, D = x.shape
         if self.merge_mode == "add":
-            return x + self.pe[:, :x.size(1)]
+            return x + self.pe[:, :L]
         else:
-            return _torch.cat((x, self.pe[:, :x.size(1)]), dim=-1)
+            return _torch.cat((x, self.pe[:, :L].repeat(B, 1, 1)), dim=-1)
 
 
 class PosEncoderLearned(_nn.Module):

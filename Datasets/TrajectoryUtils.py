@@ -152,12 +152,14 @@ def interpTraj(trajs: Traj | BatchTraj, num_points: int, mode: str = "linear") -
     """
 
     if trajs.ndim == 2:
-        trajs = trajs.unsqueeze(0)
+        batch_trajs = trajs.unsqueeze(0)
+    else:
+        batch_trajs = trajs
 
-    interp_trajs = torch.nn.functional.interpolate(trajs.transpose(1, 2), num_points, mode=mode).transpose(1, 2)
+    interp_trajs = torch.nn.functional.interpolate(batch_trajs.transpose(1, 2), num_points, mode=mode).transpose(1, 2)
 
     if trajs.ndim == 2:
-        return interp_trajs.squeeze(0)
+        interp_trajs = interp_trajs.squeeze(0)
     return interp_trajs
 
 
