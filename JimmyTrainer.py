@@ -22,7 +22,6 @@ class JimmyTrainer:
                  save_dir: str,
                  n_epochs: int,
                  moving_avg: int,
-                 compile_model: bool,
                  eval_interval: int) -> None:
         """
         Initialize the trainer with a dataset, model, optimizer, and comments.
@@ -35,17 +34,11 @@ class JimmyTrainer:
         :param save_dir: A string specifying the directory where the model checkpoints will be saved.
         :param moving_avg: An integer specifying the window size for calculating the moving average of the loss. Default is 100.
         :param mixed_precision: A boolean indicating whether to use mixed precision training. Default is False.
-        :param compile_model: A boolean indicating whether to use `torch.compile` to optimize the model. Default is False.
         :param clip_grad: A float specifying the maximum gradient norm for gradient clipping. Default is 0.0 (no clipping).
         """
 
         self.train_set = train_set
         self.eval_set = eval_set
-        if compile_model:
-            self.model: JimmyModel = torch.compile(model)
-        else:
-            self.model: JimmyModel = model
-        self.compile_model = compile_model
 
         if not hasattr(lr_scheduler, 'update'):
             # get number of arguments of lr_scheduler.step()

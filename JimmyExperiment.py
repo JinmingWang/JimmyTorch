@@ -4,6 +4,7 @@ from Models import *
 from Training import *
 import torch
 from typing import *
+from DynamicConfig import DynamicConfig
 from datetime import datetime
 import os
 from rich import print as rprint
@@ -20,36 +21,26 @@ class JimmyExperiment:
     def __init__(self, comments: str):
         self.comments = comments
 
-        self.model_cfg: dict[str, Any] = {
-            "class": SampleCNN,
-            "args": {
-                "optimizer_cls": torch.optim.Adam,
-                "optimizer_args": {"lr": 1e-5},
-                "mixed_precision": False,
-                "clip_grad": 0.0,
-            }
-        }
+        self.model_cfg = DynamicConfig(SampleCNN,
+                                       optimizer_cls=torch.optim.Adam,
+                                       optimizer_args={"lr": 1e-5},
+                                       mixed_precision=False,
+                                       clip_grad=0.0)
 
-        self.dataset_cfg: dict[str, Any] = {
-            "class": MNISTSampleDataset,
-            "args": {
-                "batch_size": 64,
-                "drop_last": False,
-                "shuffle": True}
-        }
+
+        self.dataset_cfg = DynamicConfig(MNISTSampleDataset,
+                                        batch_size=64,
+                                        drop_last=False,
+                                        shuffle=True)
 
         # The default hyperparameters for the experiment.
-        self.lr_scheduler_cfg: dict[str, Any] = {
-            "class": JimmyLRScheduler,
-            "args": {
-                "peak_lr": 2e-4,
-                "min_lr": 1e-7,
-                "warmup_count": 10,
-                "window_size": 10,
-                "patience": 10,
-                "decay_rate": 0.5
-            },
-        }
+        self.lr_scheduler_cfg = DynamicConfig(JimmyLRScheduler,
+                                              peak_lr=2e-4,
+                                              min_lr=1e-7,
+                                              warmup_count=10,
+                                              window_size=10,
+                                              patience=10,
+                                              decay_rate=0.5)
 
         # Other constants for the experiment.
         self.constants = {
@@ -71,19 +62,29 @@ class JimmyExperiment:
         return self.__str__()
 
 
-    def start(self) -> JimmyTrainer:
+    def start(self, checkpoint: str = None) -> JimmyTrainer:
         """
         Start the experiment with the given comments.
-        :param comments: Comments to be added to the Experiment.
+        :param checkpoint: The checkpoint to load the model from.
         :return: A `JimmyTrainer` object with amost everything during a training session.
         """
         rprint(f"[#00ff00]--- Start Experiment \"{self.comments}\" ---[/#00ff00]")
 
-        train_set = self.dataset_cfg["class"](set_name="train", **self.dataset_cfg["args"])
-        eval_set = self.dataset_cfg["class"](set_name="eval", **self.dataset_cfg["args"])
-        model = self.model_cfg["class"](**self.model_cfg["args"]).to(DEVICE)
+        self.dataset_cfg.set_name = "train"
+        train_set = self.dataset_cfg.build()
+        self.dataset_cfg.set_name = "eval"
+        eval_set = self.dataset_cfg.build()
+
+        model = self.model_cfg.build().to(DEVICE)
+        if self.constants["compile_model"]:
+            model: JimmyModel = torch.compile(model)
+
+        if checkpoint is not None:
+            model.loadFrom(checkpoint)
+
         model.initOptimizer()
-        lr_scheduler = self.lr_scheduler_cfg["class"](model.optimizer, **self.lr_scheduler_cfg["args"])
+        self.lr_scheduler_cfg.optimizer = model.optimizer
+        lr_scheduler = self.lr_scheduler_cfg.build()
 
         trainer_kwargs = {"train_set": train_set, "eval_set": eval_set, "model": model, "lr_scheduler": lr_scheduler}
         trainer_kwargs.update(self.constants)
@@ -115,7 +116,8 @@ class JimmyExperiment:
         trainer.start()
 
         rprint(f"[blue]Training done. Start testing.[/blue]")
-        test_set = self.dataset_cfg["class"](set_name="test", **self.dataset_cfg["args"])
+        self.dataset_cfg.set_name = "test"
+        test_set = self.dataset_cfg.build()
         test_losses = trainer.evaluate(test_set, compute_avg=False)
 
         test_report = pd.DataFrame.from_dict(test_losses)
