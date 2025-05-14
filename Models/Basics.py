@@ -128,6 +128,10 @@ class FCLayers(_nn.Sequential):
             self.append(final_act)
 
 
+# Just another name for FCLayers
+MLP = FCLayers
+
+
 class PosEncoderSinusoidal(_nn.Module):
     def __init__(self, dim: int, max_len: int=5000, merge_mode: _Literal["add", "concat"] = "add"):
         super().__init__()
