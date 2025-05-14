@@ -91,3 +91,34 @@ class JimmyModel(nn.Module):
             output = self(data_dict['data']).detach()
             loss = self.loss_fn(output, data_dict['target']).item()
         return {"Eval_loss": loss}, {"output": output.detach()}
+
+
+    def saveTo(self, path: str):
+        torch.save(self.state_dict(), path)
+
+
+    def loadFrom(self, path: str):
+        state_dict = torch.load(path)
+        current_state_dict = self.state_dict()
+
+        # Filter and handle mismatched parameters
+        mis_matched_keys = set()
+        loadable_state_dict = {}
+        for param_name, param_value in state_dict.items():
+            if param_name in current_state_dict:
+                if current_state_dict[param_name].size() == param_value.size():
+                    loadable_state_dict[param_name] = param_value
+                else:
+                    mis_matched_keys.add(param_name)
+                    print(
+                        f"Warning! Parameter '{param_name}' expect size {current_state_dict[param_name].shape} but got {param_value.shape}. Skipping.")
+            else:
+                print(f"Unexpected parameter '{param_name}''. Skipping.")
+
+        # Load filtered parameters
+        self.load_state_dict(loadable_state_dict, strict=False)
+
+        # Check for missing parameters
+        for param_name in current_state_dict.keys():
+            if param_name not in loadable_state_dict and param_name not in mis_matched_keys:
+                print(f"Missing parameter '{param_name}' in model '{self.__class__.__name__}'.")
