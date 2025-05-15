@@ -19,6 +19,8 @@ Plus a lightweight pipeline for training models
 > Please refer to `JimmyTrainer.py` for the training pipeline, and please refer to `JimmyExperiment.py` for the experiment pipeline. Finally, the `main.py` is the entry.
 
 ## TODOs
-- [ ] Add evaluation into trainer pipeline
-- [ ] Add testing into experiment pipeline
+- [ ] Maybe add more neural network modules that are often used
+
+## Experience
+So far, it is successfully applied in time series forecasting, image classification, and diffusion model related projects.
 
