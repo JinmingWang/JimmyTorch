@@ -39,6 +39,7 @@ class JimmyTrainer:
 
         self.train_set = train_set
         self.eval_set = eval_set
+        self.model = model
 
         if not hasattr(lr_scheduler, 'update'):
             # get number of arguments of lr_scheduler.step()

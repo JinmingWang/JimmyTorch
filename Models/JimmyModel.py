@@ -15,6 +15,7 @@ class JimmyModel(nn.Module):
                  optimizer_cls=None,
                  optimizer_args=None,
                  mixed_precision: bool = False,
+                 compile_model: bool = False,
                  clip_grad: float = 0.0):
         super(JimmyModel, self).__init__()
         self.train_loss_names = ["Train_loss"]
@@ -23,6 +24,7 @@ class JimmyModel(nn.Module):
         self.optimizer_cls = optimizer_cls
         self.optimizer_args = optimizer_args
         self.mixed_precision = mixed_precision
+        self.compile_model = compile_model
         try:
             self.scaler = torch.amp.GradScaler() if mixed_precision else None
             # torch.amp.GradScaler may be torch.cuda.amp.GradScaler in some versions
@@ -32,13 +34,16 @@ class JimmyModel(nn.Module):
 
 
 
-    def initOptimizer(self) -> None:
+    def initialize(self) -> None:
         """
         Initialize the optimizer for the model.
         :param optimizer_cls: The optimizer class to use (e.g., torch.optim.Adam).
         :param optimizer_args: A dictionary of arguments to pass to the optimizer constructor.
         :return:
         """
+        if self.compile_model:
+            self.compile()
+
         if self.optimizer_cls is None or self.optimizer_args is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         else:

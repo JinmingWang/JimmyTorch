@@ -25,6 +25,7 @@ class JimmyExperiment:
                                        optimizer_cls=torch.optim.Adam,
                                        optimizer_args={"lr": 1e-5},
                                        mixed_precision=False,
+                                       compile_model=False,
                                        clip_grad=0.0)
 
 
@@ -46,7 +47,6 @@ class JimmyExperiment:
         self.constants = {
             "n_epochs": 100,
             "moving_avg": 100,
-            "compile_model": False,
         }
 
 
@@ -76,13 +76,11 @@ class JimmyExperiment:
         eval_set = self.dataset_cfg.build()
 
         model = self.model_cfg.build().to(DEVICE)
-        if self.constants["compile_model"]:
-            model: JimmyModel = torch.compile(model)
 
         if checkpoint is not None:
             model.loadFrom(checkpoint)
 
-        model.initOptimizer()
+        model.initialize()
         self.lr_scheduler_cfg.optimizer = model.optimizer
         lr_scheduler = self.lr_scheduler_cfg.build()
 

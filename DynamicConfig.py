@@ -29,6 +29,10 @@ class DynamicConfig:
         }
         return self.cls(**kwargs)
 
+    def add(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
     def remove(self, key: str) -> None:
         """
         Remove an attribute from the instance.
