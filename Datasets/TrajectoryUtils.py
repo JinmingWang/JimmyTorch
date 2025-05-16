@@ -165,6 +165,7 @@ def interpTraj(trajs: Traj | BatchTraj, num_points: int, mode: str = "linear") -
 
 def plotTraj(ax: plt.Axes,
              trajs: Traj | BatchTraj,
+             traj_lengths: Optional[Tensor] = None,
              color: str = "blue",
              linewidth: int=1,
              markersize: int=1) -> None:
@@ -179,9 +180,14 @@ def plotTraj(ax: plt.Axes,
     # Add batch dimension if needed
     if trajs.ndim == 2:
         trajs = trajs.unsqueeze(0)
+    trajs = trajs.cpu().numpy()
+    if traj_lengths is not None:
+        traj_lengths = traj_lengths.cpu().numpy()
 
     # Plot each trajectory in the batch
-    for traj in trajs:
+    for ti, traj in enumerate(trajs):
+        if traj_lengths is not None:
+            traj = traj[:traj_lengths[ti]]
         ax.plot(getLng(traj), getLat(traj), color=color, linewidth=linewidth,
                 marker='.', markersize=markersize)
 
