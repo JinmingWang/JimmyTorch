@@ -42,6 +42,7 @@ class JimmyModel(nn.Module):
         :return:
         """
         if self.compile_model:
+            torch.set_float32_matmul_precision('high')
             self.compile()
 
         if self.optimizer_cls is None or self.optimizer_args is None:
