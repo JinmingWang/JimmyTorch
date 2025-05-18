@@ -195,6 +195,42 @@ def plotTraj(ax: plt.Axes,
     ax.set_ylabel("Latitude")
 
 
+def geometricDistance(pred_points: Tensor,
+                      gt_points: Tensor,
+                      reduction: Callable = "mean"  # "mean", "sum", "none"
+                      ) -> Tensor:
+    """
+    Compute the geometric distance between predicted and ground truth points.
+
+    :param pred_points: Predicted points of shape (..., 2)
+    :param gt_points: Ground truth points of shape (..., 2)
+    :param reduction: Reduction method to apply to the distance. Default is "none".
+                      "mean" or "sum" can be used to reduce the distance.
+    :return: Geometric distance
+    """
+
+    # Each point is represented as (longitude, latitude)
+    # We need to ccompute the distance between each pair of points in meters
+    # Using Haversine formula to compute the distance
+    R = 6371000  # Radius of the Earth in meters
+    pred_rad = torch.deg2rad(pred_points)
+    gt_rad = torch.deg2rad(gt_points)
+
+    dlat = getLat(pred_rad) - getLat(gt_rad)
+    dlon = getLng(pred_rad) - getLng(gt_rad)
+
+    a = torch.sin(dlat / 2) ** 2 + torch.cos(getLat(gt_rad)) * torch.cos(getLat(pred_rad)) * torch.sin(dlon / 2) ** 2
+    c = 2 * torch.atan2(torch.sqrt(a), torch.sqrt(1 - a))
+    distance = R * c  # Distance in meters, shape: (...,)
+
+    if reduction == "mean":
+        return torch.mean(distance)
+    elif reduction == "sum":
+        return torch.sum(distance)
+    return distance
+
+
+
 
 
 

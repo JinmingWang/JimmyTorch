@@ -1,9 +1,10 @@
 import torch.nn as nn
 import torch
 from torch import Tensor
+from typing import Callable
 
 class MaskedLoss(nn.Module):
-    def __init__(self, base_loss: nn.Module) -> None:
+    def __init__(self, base_loss: Callable):
         """
         Initialize the masked loss function.
 
