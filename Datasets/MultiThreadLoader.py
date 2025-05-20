@@ -44,21 +44,14 @@ class MultiThreadLoader:
 
     def __iter__(self) -> Iterable:
         for _ in range(len(self)):
-            if self.stop_event.is_set():
-                break
-            data_dict = self.queue.get()
-            yield data_dict
-            self.queue.task_done()
-
+            yield self.queue.get()
 
     def _load_data(self):
         """
         Load data from the dataset and put it in the queue
         :return:
         """
-        for data_dict in self.dataset:
-            if self.stop_event.is_set():
-                break
+        for i, data_dict in enumerate(self.dataset):
             self.queue.put(data_dict)
 
 
