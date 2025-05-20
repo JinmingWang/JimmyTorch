@@ -22,10 +22,18 @@ class MaskedLoss(nn.Module):
         :return: the masked loss
         """
         # Apply the mask to the predictions and targets
-        masked_pred = pred * mask
-        masked_target = target * mask
 
-        # Calculate the loss using the base loss function
+        mask = (mask > 0).repeat(1, 1, 2)
+
+        if isinstance(target, Tensor):
+            masked_pred = pred[mask]
+            masked_target = target[mask]
+        elif isinstance(target, list):
+            masked_pred = pred[mask]
+            masked_target = torch.cat(target, dim=0).flatten()
+            # Then target is a list of tensors, each item has different shape (L, 2)
+            # We can convert both pred and target to sequences of points
+
         loss = self.base_loss(masked_pred, masked_target)
 
         return loss
