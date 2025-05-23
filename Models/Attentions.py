@@ -39,3 +39,17 @@ class SELayer1D(nn.Sequential):
     def forward(self, x):
         return x * super().forward(x)
 
+
+class MHSA(nn.Module):
+    def __init__(self, d_in: int, num_heads: int, dropout: float=0.0):
+        """
+        Multi-head self-attention layer.
+        :param d_in: Input dimension.
+        :param num_heads: Number of attention heads.
+        """
+        super(MHSA, self).__init__()
+
+        self.attn = nn.MultiheadAttention(d_in, num_heads, dropout, batch_first=True)
+
+    def forward(self, x):
+        return self.attn(x, x, x)[0]
