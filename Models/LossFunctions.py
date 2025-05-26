@@ -40,7 +40,7 @@ class MaskedLoss(nn.Module):
 
 
 class SequentialLossWithLength(nn.Module):
-    def __init__(self, base_loss: nn.Module) -> None:
+    def __init__(self, base_loss: Callable) -> None:
         """
         Loss applied to sequential data with a length to each data sample.
 
