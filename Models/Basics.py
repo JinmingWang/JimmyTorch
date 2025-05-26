@@ -26,7 +26,7 @@ def _ConvNDNormActCreator(class_name: str) -> type:
         _nn.Sequential.__init__(self,
                                 conv(c_in, c_out, k, s, p, d, g, bias=False),
                                 norm(gn_groups, c_out) if norm_name == "Gn" else norm(c_out),
-                                act(inplace=True)
+                                act if act_name == "GELU" else act(inplace=True)
                                 )
 
     return type(class_name, (_nn.Sequential,), {"__init__": initFunc, "__name__": class_name})
