@@ -23,8 +23,6 @@ class MaskedLoss(nn.Module):
         """
         # Apply the mask to the predictions and targets
 
-        mask = (mask > 0).repeat(1, 1, 2)
-
         if isinstance(target, Tensor):
             masked_pred = pred[mask]
             masked_target = target[mask]
