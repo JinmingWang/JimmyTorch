@@ -23,6 +23,8 @@ class MaskedLoss(nn.Module):
         """
         # Apply the mask to the predictions and targets
 
+        mask = mask.to(torch.bool)
+
         if isinstance(target, Tensor):
             masked_pred = pred[mask]
             masked_target = target[mask]
