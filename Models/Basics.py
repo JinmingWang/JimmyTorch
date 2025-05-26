@@ -75,7 +75,7 @@ def _NormActConvNDCreator(class_name: str) -> type:
     def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1, gn_groups: int=8):
         _nn.Sequential.__init__(self,
                                 norm(gn_groups, c_in) if norm_name == "Gn" else norm(c_in),
-                                act(inplace=True),
+                                act() if act_name == "GELU" else act(inplace=True),
                                 conv(c_in, c_out, k, s, p, d, g)
                                 )
 
