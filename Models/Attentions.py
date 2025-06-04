@@ -12,7 +12,7 @@ class SELayer2D(nn.Sequential):
         super().__init__(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(c_in, c_in // reduction, 1, bias=False),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Conv2d(c_in // reduction, c_in, 1, bias=False),
             nn.Sigmoid()
         )
@@ -31,7 +31,7 @@ class SELayer1D(nn.Sequential):
         super().__init__(
             nn.AdaptiveAvgPool1d(1),
             nn.Conv1d(c_in, c_in // reduction, 1, bias=False),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Conv1d(c_in // reduction, c_in, 1, bias=False),
             nn.Sigmoid()
         )
