@@ -72,11 +72,11 @@ def _NormActConvNDCreator(class_name: str) -> type:
     norm = _norm_options[norm_name][ND]
     act = _activations[act_name]
 
-    def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1, gn_groups: int=8):
+    def initFunc(self, c_in: int, c_out: int, k: int, s: int=1, p: int=0, d: int=1, g: int=1, gn_groups: int=8, bias=True):
         _nn.Sequential.__init__(self,
                                 norm(gn_groups, c_in) if norm_name == "Gn" else norm(c_in),
                                 act() if act_name == "GELU" else act(inplace=True),
-                                conv(c_in, c_out, k, s, p, d, g)
+                                conv(c_in, c_out, k, s, p, d, g, bias=bias),
                                 )
 
     return type(class_name, (_nn.Sequential,), {"__init__": initFunc, "__name__": class_name})
@@ -133,15 +133,30 @@ MLP = FCLayers
 
 
 class PosEncoderSinusoidal(_nn.Module):
-    def __init__(self, dim: int, max_len: int=5000, merge_mode: _Literal["add", "concat"] = "add"):
+    def __init__(self,
+                 dim: int,
+                 max_len: int=5000,
+                 merge_mode: _Literal["add", "concat"] = "add",
+                 d_pe: int = None):
+        """
+
+        :param dim: The dimension of the sequence to be encoded.
+        :param max_len: Maximum length of the sequence for which positional encoding is computed.
+        :param merge_mode: _Literal["add", "concat"]
+        :param d_pe: When use concat, the dimension of positional encoding.
+        """
         super().__init__()
         self.dim = dim
         self.max_len = max_len
         self.merge_mode = merge_mode
 
-        self.register_buffer("pe", _torch.zeros(max_len, dim))
+        if merge_mode == "add":
+            d_pe = dim
+        self.d_pe = dim if d_pe is None else d_pe
+
+        self.register_buffer("pe", _torch.zeros(max_len, self.d_pe))
         position = _torch.arange(0, max_len, dtype=_torch.float).unsqueeze(1)
-        div_term = _torch.exp(_torch.arange(0, dim, 2).float() * (-_torch.log(_torch.tensor(10000.0)) / dim))
+        div_term = _torch.exp(_torch.arange(0, self.d_pe, 2).float() * (-_torch.log(_torch.tensor(10000.0)) / self.d_pe))
         self.pe[:, 0::2] = _torch.sin(position * div_term)
         self.pe[:, 1::2] = _torch.cos(position * div_term)
         self.pe = self.pe.unsqueeze(0)
