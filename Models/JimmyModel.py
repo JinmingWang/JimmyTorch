@@ -104,7 +104,7 @@ class JimmyModel(nn.Module):
 
 
     def loadFrom(self, path: str):
-        state_dict = torch.load(path)
+        state_dict = torch.load(path, weights_only=False)
         current_state_dict = self.state_dict()
 
         # Filter and handle mismatched parameters
