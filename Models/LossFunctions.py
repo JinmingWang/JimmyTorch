@@ -68,3 +68,24 @@ class SequentialLossWithLength(nn.Module):
         loss = self.base_loss(masked_pred, masked_target)
 
         return loss
+
+
+class RMSE(nn.Module):
+    def __init__(self) -> None:
+        """
+        Initialize the RMSE loss function.
+        """
+        super(RMSE, self).__init__()
+        self.mse = nn.MSELoss()
+
+    def forward(self, pred: Tensor, target: Tensor) -> Tensor:
+        """
+        Calculate the Root Mean Square Error (RMSE).
+
+        :param pred: the predicted output
+        :param target: the target output
+        :return: the RMSE loss
+        """
+        mse_loss = self.mse(pred, target)
+        return torch.sqrt(mse_loss)
+
