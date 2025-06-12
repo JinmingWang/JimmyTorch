@@ -191,7 +191,8 @@ class PosEncoderLearned(_nn.Module):
         :return: Tensor with positional encoding added, of the same shape as input.
         """
         if self.merge_mode == "add":
-            return x + self.pe(self.pe_idx[:, :x.size(1)])
+            pe_idx = self.pe(_torch.arange(x.shape[1], device=x.device)).unsqueeze(0)
+            return x + pe_idx
         else:
             return _torch.cat((x, self.pe(self.pe_idx[:, :x.size(1)])), dim=-1)
 
