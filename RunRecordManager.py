@@ -10,9 +10,7 @@ DatasetRecord = dict[str, ModelRecord]
 
 
 class RunRecordManager:
-    def __init__(self):
-        root = "./Runs"
-
+    def __init__(self, root: str = "./Runs"):
         self.records: dict[str, DatasetRecord] = dict()
         for dataset_name in os.listdir(root):
             dataset_path = os.path.join(root, dataset_name)
