@@ -210,7 +210,7 @@ def geometricDistance(pred_points: Tensor,
     """
 
     # Each point is represented as (longitude, latitude)
-    # We need to ccompute the distance between each pair of points in meters
+    # We need to compute the distance between each pair of points in meters
     # Using Haversine formula to compute the distance
     R = 6371000  # Radius of the Earth in meters
     pred_rad = torch.deg2rad(pred_points)
