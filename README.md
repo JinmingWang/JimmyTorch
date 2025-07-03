@@ -2,6 +2,9 @@
 Some Utility Functions that I often use in deep learning projects
 Plus a lightweight pipeline for training models
 
+[![en](https://img.shields.io/badge/lang-en-blue.svg)](README.md)
+[![cn](https://img.shields.io/badge/lang-cn-red.svg)](README.cn.md)
+
 ## Usage
 
 > ### Dataset
