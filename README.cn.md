@@ -1,6 +1,9 @@
 # JimmyTorch
 我个人常用的深度学习实验工具，基于PyTorch实现，包含很多数据集、模型、训练、可视化等相关函数。
 
+[![en](https://img.shields.io/badge/lang-en-blue.svg)](README.md)
+[![cn](https://img.shields.io/badge/lang-cn-red.svg)](README.cn.md)
+
 ## 使用方法
 
 > ### 数据集
