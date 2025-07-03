@@ -11,9 +11,10 @@ Plus a lightweight pipeline for training models
 
 > ### Model
 > Define your own neural network class that inherits from `JimmyModel`
-1. A `__init__` method just like normal pytorch models, additionally, it must define `self.loss_names`.
+1. A `__init__` method just like normal pytorch models, additionally, it must define `self.train_loss_names` and `self.eval_loss_names`.
 2. A `forward` method just like normal pytorch models
-3. A `forwardBackward` method that processes model forward, loss computation, loss backward, mixed precision training, and returns loss dictionary and output dictionary.
+3. A `trainStep` method that processes model forward, loss computation, loss backward, mixed precision training, and returns loss dictionary and output dictionary.
+4. A `evalStep` method that processes model forward, loss computation, and returns loss dictionary and output dictionary.
 
 > ### Training and Experiment
 > Please refer to `JimmyTrainer.py` for the training pipeline, and please refer to `JimmyExperiment.py` for the experiment pipeline. Finally, the `main.py` is the entry.
