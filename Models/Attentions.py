@@ -43,7 +43,7 @@ class SELayer1D(nn.Sequential):
 class MHSA(nn.Module):
     def __init__(self, d_in: int, num_heads: int, dropout: float=0.0):
         """
-        Multi-head self-attention layer.
+        Multi-head self-attention layer. It includes query, key, value projections and output projection.
         :param d_in: Input dimension.
         :param num_heads: Number of attention heads.
         """

@@ -6,7 +6,7 @@ from .Basics import *
 from .CostTest import testCudaSpeed, testFlops
 from .Attentions import SELayer1D, SELayer2D, MHSA
 from .ModelUtils import Transpose, Permute, Reshape, PrintShape, SequentialMultiIO, makeItResidual, Rearrange
-from .LossFunctions import MaskedLoss, SequentialLossWithLength, RMSE
+from .LossFunctions import MaskedLoss, SequentialLossWithLength, RMSE, KLDLoss
 from .Functional import extendAs
 from .JimmyModel import JimmyModel
 

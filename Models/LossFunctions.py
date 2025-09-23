@@ -89,3 +89,28 @@ class RMSE(nn.Module):
         mse_loss = self.mse(pred, target)
         return torch.sqrt(mse_loss)
 
+
+class KLDLoss(nn.Module):
+    def __init__(self, kl_weight: float = 1.0):
+        """
+        Initializes the VAELoss class.
+
+        Parameters:
+        - kl_weight (float): Weight to scale the KL divergence loss. Default is 1.0.
+        """
+        super(KLDLoss, self).__init__()
+        # larger kl_weight
+        # -> encourage smaller kl_loss
+        # -> encourage larger torch.sum(1 + z_logvar - z_mean.pow(2) - z_logvar.exp(), dim=-1)
+        # -> encourage z_mean = 0
+        # -> encourage 1 + z_logvar - z_logvar.exp() = 0
+        # -> encourage z_logvar = 0
+        # -> encourage exp(z_logvar) to be larger, so larger noise
+        self.kl_weight = kl_weight
+
+    def forward(self, z_mean: torch.Tensor, z_logvar: torch.Tensor):
+        # Compute KL Divergence loss (KL divergence between N(z_mean, exp(z_logvar)) and N(0, 1))
+        kl_loss = -0.5 * torch.sum(1 + z_logvar - z_mean.pow(2) - z_logvar.exp(), dim=-1)  # Per node
+        kl_loss = kl_loss.mean() * self.kl_weight
+
+        return kl_loss
