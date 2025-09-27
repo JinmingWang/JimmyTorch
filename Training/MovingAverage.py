@@ -18,3 +18,9 @@ class MovingAvg():
 
     def __len__(self):
         return self.count
+
+    def toList(self) -> list[float]:
+        if self.count == self.window_size:
+            return (torch.cat((self.values[self.idx:], self.values[:self.idx]))).tolist()
+        else:
+            return (self.values[:self.count]).tolist()
