@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Any
+from contextlib import nullcontext
 
 
 class JimmyModel(nn.Module):
@@ -18,8 +19,8 @@ class JimmyModel(nn.Module):
                  compile_model: bool = False,
                  clip_grad: float = 0.0):
         super(JimmyModel, self).__init__()
-        self.train_loss_names = ["Train_loss"]
-        self.eval_loss_names = ["Eval_loss"]
+        self.train_loss_names = ["Train/Main"]
+        self.eval_loss_names = ["Eval/Main"]
         self.loss_fn = nn.CrossEntropyLoss()
         self.optimizer_cls = optimizer_cls
         self.optimizer_args = optimizer_args
@@ -56,47 +57,45 @@ class JimmyModel(nn.Module):
         return self.optimizer.param_groups[0]['lr']
 
 
-    def trainStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+    def backwardOptimize(self, loss):
+        """ Perform backward pass and optimizer step """
+        # if loss is NaN, skip this step
+        if torch.isnan(loss):
+            print("NaN loss!")
+            # 发出3秒钟440Hz的声音
+            import os
+            os.system("play -nq -t alsa synth 3 sine 440")
+            return
         if self.mixed_precision:
-            # Automatic Mixed Precision (AMP) forward pass and loss calculation
-            with torch.autocast(device_type=data_dict['data'].device, dtype=torch.float16):
-                output = self(data_dict['data'])
-                loss = self.loss_fn(output, data_dict['target'])
-
-            # Backward pass with AMP
             self.scaler.scale(loss).backward()
-
-            # Gradient clipping with AMP (if specified)
             if self.clip_grad > 0:
                 self.scaler.unscale_(self.optimizer)
-                nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
-
-            # Optimizer step with AMP
+                nn.utils.clip_grad_norm_(self.parameters(), self.clip_grad)
             self.scaler.step(self.optimizer)
             self.scaler.update()
         else:
-            # Standard forward pass and backward pass
-            output = self(data_dict['data'])
-            loss = self.loss_fn(output, data_dict['target'])
             loss.backward()
-
-            # Standard gradient clipping (if specified)
             if self.clip_grad > 0:
-                nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
-
-            # Optimizer step
+                nn.utils.clip_grad_norm_(self.parameters(), self.clip_grad)
             self.optimizer.step()
-
-        # Zero the gradients
         self.optimizer.zero_grad()
 
-        return {"Train_loss": loss.item()}, {"output": output.detach()}
+
+    def trainStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+
+        with torch.autocast(device_type=data_dict['data'].device, dtype=torch.float16) if self.mixed_precision else nullcontext():
+            output = self(data_dict['data'])
+            loss = self.loss_fn(output, data_dict['target'])
+
+        self.backwardOptimize(loss)
+
+        return {"Train/Main": loss.item()}, {"output": output.detach()}
 
     def evalStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
         with torch.no_grad():
             output = self(data_dict['data']).detach()
             loss = self.loss_fn(output, data_dict['target']).item()
-        return {"Eval_loss": loss}, {"output": output.detach()}
+        return {"Eval/Main": loss}, {"output": output.detach()}
 
 
     def saveTo(self, path: str):
