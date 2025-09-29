@@ -90,7 +90,7 @@ class JimmyTrainer:
             tm.log(pm.overall_progress, LR=self.model.lr, **loss_dict)
 
             # Update learning rate scheduler
-            self.lr_scheduler.update(loss_dict["Train_loss"])
+            self.lr_scheduler.update(loss_dict["Train/Main"])
 
             if epoch % self.eval_interval == 0:
                 eval_losses = self.evaluate(self.eval_set)
@@ -99,10 +99,11 @@ class JimmyTrainer:
                 tm.log(pm.overall_progress, **eval_losses)
 
                 # 根据eval_losses["MAE"]来判断最好的模型
-                eval_loss = eval_losses["Eval_loss"]
+                eval_loss = eval_losses["Eval/Main"]
                 if eval_loss < best_loss:
                     best_loss = eval_loss
-                    saveModels(os.path.join(self.save_dir, "best.pth"), model=self.model)
+                    self.model.saveTo(os.path.join(self.save_dir, "best.pth"))
+                self.model.saveTo(os.path.join(self.save_dir, f"last.pth"))
 
         pm.close()
 
