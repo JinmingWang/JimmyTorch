@@ -194,7 +194,8 @@ class PosEncoderLearned(_nn.Module):
             pe_idx = self.pe(_torch.arange(x.shape[1], device=x.device)).unsqueeze(0)
             return x + pe_idx
         else:
-            return _torch.cat((x, self.pe(self.pe_idx[:, :x.size(1)])), dim=-1)
+            B = x.size(0)
+            return _torch.cat((x, self.pe(self.pe_idx[:, :x.size(1)]).repeat(B, 1, 1)), dim=-1)
 
 
 class PosEncoderRotary(_nn.Module):

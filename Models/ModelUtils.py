@@ -71,6 +71,8 @@ class SequentialMultiIO(nn.Sequential):
         """
         for module in self:
             dynamic_inputs = module(*dynamic_inputs, **static_inputs)
+            if not isinstance(dynamic_inputs, tuple):
+                dynamic_inputs = (dynamic_inputs,)
         return dynamic_inputs
 
 

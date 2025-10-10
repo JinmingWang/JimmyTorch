@@ -79,14 +79,13 @@ class DDIM:
             sqrt_1mab = self.sqrt_1_m_αbar[t]  # scalar
 
             x0_pred = sqrt_ab * x_tp1.flatten(1) - sqrt_1mab * v_pred
-            epsilon_pred = (v_pred + sqrt_1mab * x0_pred) / sqrt_ab
-        else:
-            if x0_pred is None:
-                x0_pred = (x_tp1.flatten(1) - self.sqrt_1_m_αbar[t] * epsilon_pred.flatten(1)) / self.sqrt_αbar[t]
-            else:
-                x0_pred = x0_pred.flatten(1)
-
-        epsilon_pred = epsilon_pred.flatten(1)
+            epsilon_pred = ((v_pred + sqrt_1mab * x0_pred) / sqrt_ab).flatten(1)
+        elif epsilon_pred is not None:
+            x0_pred = (x_tp1.flatten(1) - self.sqrt_1_m_αbar[t] * epsilon_pred.flatten(1)) / self.sqrt_αbar[t]
+            epsilon_pred = epsilon_pred.flatten(1)
+        elif x0_pred is not None:
+            x0_pred = x0_pred.flatten(1)
+            epsilon_pred = torch.zeros_like(x0_pred)
 
         # if t <= self.skip_step, then mask is 1, which means return pred_x0
         # otherwise, mask is 0, which means return diffuse
