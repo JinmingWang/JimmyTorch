@@ -98,6 +98,12 @@ class JimmyModel(nn.Module):
         return {"Eval/Main": loss}, {"output": output.detach()}
 
 
+    def testStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+        # Sometimes, test steps can be different from eval steps.
+        # For example, it may not want to draw any figures, and want to return unreduced losses
+        return self.evalStep(data_dict)
+
+
     def saveTo(self, path: str):
         torch.save(self.state_dict(), path)
 
