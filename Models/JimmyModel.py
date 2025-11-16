@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Any
-from contextlib import nullcontext
+from .Functional import getAutoCast
 
 
 class JimmyModel(nn.Module):
@@ -83,7 +83,7 @@ class JimmyModel(nn.Module):
 
     def trainStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
 
-        with torch.autocast(device_type=data_dict['data'].device, dtype=torch.float16) if self.mixed_precision else nullcontext():
+        with getAutoCast(data_dict['data'], self.mixed_precision):
             output = self(data_dict['data'])
             loss = self.loss_fn(output, data_dict['target'])
 
