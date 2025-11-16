@@ -154,7 +154,7 @@ class Rearrange(nn.Module):
         :param x: The input tensor.
         :return: The rearranged tensor.
         """
-        return self.operations(x)
+        return self.operations(x).contiguous()
 
 
 def makeItResidual(forward_func):

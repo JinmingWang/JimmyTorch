@@ -27,10 +27,10 @@ class JimmyModel(nn.Module):
         self.mixed_precision = mixed_precision
         self.compile_model = compile_model
         try:
-            self.scaler = torch.amp.GradScaler() if mixed_precision else None
+            self.scaler = torch.amp.GradScaler(init_scale=2.0**14) if mixed_precision else None
             # torch.amp.GradScaler may be torch.cuda.amp.GradScaler in some versions
         except AttributeError:
-            self.scaler = torch.cuda.amp.GradScaler() if mixed_precision else None
+            self.scaler = torch.cuda.amp.GradScaler(init_scale=2.0**14) if mixed_precision else None
         self.clip_grad = clip_grad
 
 

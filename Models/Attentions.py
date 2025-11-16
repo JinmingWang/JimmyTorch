@@ -53,3 +53,19 @@ class MHSA(nn.Module):
 
     def forward(self, x):
         return self.attn(x, x, x)[0]
+
+
+class MHCA(nn.Module):
+    def __init__(self, d_in: int, d_cond: int, num_heads: int, dropout: float=0.0):
+        """
+        Multi-head cross-attention layer.
+        :param d_in: Input dimension.
+        :param d_cond: Conditional input dimension.
+        :param num_heads: Number of attention heads.
+        """
+        super(MHCA, self).__init__()
+
+        self.attn = nn.MultiheadAttention(d_in, num_heads, dropout, batch_first=True, kdim=d_cond, vdim=d_cond)
+
+    def forward(self, x, cond):
+        return self.attn(x, cond, cond)[0]  # x is the query, cond is the key and value

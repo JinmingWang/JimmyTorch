@@ -69,7 +69,8 @@ class DDIM:
                     v_pred: Tensor,
                     x_tp1: Tensor,
                     t: Tensor,
-                    next_t: Tensor) -> Tensor:
+                    next_t: Tensor,
+                    need_x0: bool = False) -> Tensor:
         original_shape = x_tp1.shape
 
         if v_pred is not None:
@@ -90,7 +91,11 @@ class DDIM:
         # if t <= self.skip_step, then mask is 1, which means return pred_x0
         # otherwise, mask is 0, which means return diffuse
         mask = (t == 0).to(x0_pred.dtype).view(-1, 1)
-        return (x0_pred * mask + self.diffuse(x0_pred, next_t, epsilon_pred) * (1 - mask)).view(*original_shape)
+        output = (x0_pred * mask + self.diffuse(x0_pred, next_t, epsilon_pred) * (1 - mask)).view(*original_shape)
+
+        if need_x0:
+            return output, x0_pred.view(*original_shape)
+        return output
 
 
     @torch.no_grad()

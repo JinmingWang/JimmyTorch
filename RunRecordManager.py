@@ -54,13 +54,21 @@ class RunRecordManager:
         return records
 
 
-    def printRecords(self):
-        console = Console()
+    def printRecords(self, datasets: Optional[List[str]] = None, models: Optional[List[str]] = None):
+        console = Console(width=120)
         root_tree = Tree("[bold blue]Runs[/bold blue]")
+        if datasets is None:
+            datasets = self.records.keys()
 
-        for dataset_name, dataset_rec in self.records.items():
+        for dataset_name in datasets:
+            dataset_rec = self.records.get(dataset_name, {})
             dataset_tree = root_tree.add(f"[bold #00FFFF]{dataset_name}[/bold #00FFFF]")
-            for model_name, model_rec in dataset_rec.items():
+
+            if models is None:
+                models = dataset_rec.keys()
+
+            for model_name in models:
+                model_rec = dataset_rec.get(model_name, {})
                 model_tree = dataset_tree.add(f"[magenta]{model_name}[/magenta]")
                 for run_name, run_rec in model_rec.items():
                     status_color = {
