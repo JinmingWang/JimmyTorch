@@ -1,6 +1,6 @@
 from .DatasetUtils import *
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 Traj = FT32[Tensor, "L 2"]
 BatchTraj = FT32[Tensor, "B L 2"]
@@ -230,7 +230,58 @@ def geometricDistance(pred_points: Tensor,
     return distance
 
 
+def computeJSD(dataset1: BatchTraj, dataset2: BatchTraj, num_bins: int = 50) -> float:
+    """
+    Compute Jensen-Shannon Divergence (JSD) between two trajectory datasets.
 
+    :param dataset1: First trajectory dataset of shape (N1, L, 2)
+    :param dataset2: Second trajectory dataset of shape (N2, L, 2)
+    :param num_bins: Number of bins for histogram computation. Default is 50.
+    :return: Jensen-Shannon Divergence value
+    """
+    # Flatten trajectories to get all points
+    points1 = dataset1.reshape(-1, 2).cpu().numpy()  # (N1*L, 2)
+    points2 = dataset2.reshape(-1, 2).cpu().numpy()  # (N2*L, 2)
 
+    # Find common bounds for both datasets
+    all_points = np.concatenate([points1, points2], axis=0)
+    lng_min, lng_max = all_points[:, 0].min(), all_points[:, 0].max()
+    lat_min, lat_max = all_points[:, 1].min(), all_points[:, 1].max()
 
+    # Create 2D histograms
+    hist1, _, _ = np.histogram2d(points1[:, 0], points1[:, 1],
+                                bins=num_bins,
+                                range=[[lng_min, lng_max], [lat_min, lat_max]])
+    hist2, _, _ = np.histogram2d(points2[:, 0], points2[:, 1],
+                                bins=num_bins,
+                                range=[[lng_min, lng_max], [lat_min, lat_max]])
+
+    # Normalize to get probability distributions
+    hist1 = hist1 / hist1.sum()
+    hist2 = hist2 / hist2.sum()
+
+    # Flatten histograms
+    p = hist1.flatten()
+    q = hist2.flatten()
+
+    # Add small epsilon to avoid log(0)
+    eps = 1e-10
+    p = p + eps
+    q = q + eps
+
+    # Renormalize
+    p = p / p.sum()
+    q = q / q.sum()
+
+    # Compute average distribution
+    m = 0.5 * (p + q)
+
+    # Compute KL divergences
+    kl_pm = np.sum(p * np.log(p / m))
+    kl_qm = np.sum(q * np.log(q / m))
+
+    # Jensen-Shannon Divergence
+    jsd = 0.5 * kl_pm + 0.5 * kl_qm
+
+    return float(jsd)
 

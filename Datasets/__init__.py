@@ -4,7 +4,7 @@ from .MultiThreadLoader import MultiThreadLoader
 from .DatasetUtils import DEVICE
 
 from .TrajectoryUtils import Traj, BatchTraj, getLat, getLng, computeDistance, cropPadTraj, flipTrajWestEast, \
-    flipTrajNorthSouth, centerTraj, zScoreTraj, minMaxTraj, rotateTraj, interpTraj, plotTraj, geometricDistance
+    flipTrajNorthSouth, centerTraj, zScoreTraj, minMaxTraj, rotateTraj, interpTraj, plotTraj, geometricDistance, computeJSD
 
 from .SequenceUtils import cropPadSequence
 
