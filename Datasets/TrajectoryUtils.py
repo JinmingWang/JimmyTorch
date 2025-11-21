@@ -197,7 +197,7 @@ def plotTraj(ax: plt.Axes,
 
 def geometricDistance(pred_points: Tensor,
                       gt_points: Tensor,
-                      reduction: Callable = "mean"  # "mean", "sum", "none"
+                      reduction: str = "mean"  # "mean", "sum", "none"
                       ) -> Tensor:
     """
     Compute the geometric distance between predicted and ground truth points.

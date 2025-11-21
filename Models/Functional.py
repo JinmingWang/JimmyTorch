@@ -14,6 +14,6 @@ def extendAs(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 def getAutoCast(data_sample: torch.Tensor, mixed_precision: bool):
     if mixed_precision:
-        return torch.autocast(device_type=data_sample.device, dtype=torch.float16)
+        return torch.autocast(device_type=data_sample.device.type, dtype=torch.float16)
     else:
         return nullcontext()
