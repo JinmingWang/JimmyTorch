@@ -86,7 +86,7 @@ class DDIM:
             epsilon_pred = epsilon_pred.flatten(1)
         elif x0_pred is not None:
             x0_pred = x0_pred.flatten(1)
-            epsilon_pred = torch.zeros_like(x0_pred)
+            epsilon_pred = (self.extractNoise(x0_pred, x_tp1, t)).flatten(1)
 
         # if t <= self.skip_step, then mask is 1, which means return pred_x0
         # otherwise, mask is 0, which means return diffuse
@@ -120,8 +120,11 @@ class DDIM:
         t_schedule = list(range(self.T - 1, -1, -self.skip_step))
         if t_schedule[-1] != 0:
             t_schedule.append(0)
-        # [T, T-s, T-2s, ..., 0]
+        if t_schedule[-2] != 1:
+            t_schedule.insert(-1, 1)
+        # [T, T-s, T-2s, ..., 1, 0]
 
+        # pbar = tqdm(t_schedule[:-1]) if verbose else t_schedule[:-1]
         pbar = tqdm(t_schedule) if verbose else t_schedule
         for ti, t in enumerate(pbar):
             x0_pred, epsilon_pred, v_pred = pred_func(x_t, all_t[:, t], **pred_func_args)
@@ -133,31 +136,6 @@ class DDIM:
 
     def combineNoise(self, eps_0_to_t, eps_t_to_tp1, t):
         """
-        traj[1] = sqrt(alpha[0]) * traj[0] + sqrt(1 - alpha[0]) * eps_0:1
-
-        traj[t] = sqrt(alpha[t-1]) * traj[t-1] + sqrt(beta[t-1]) * eps_t-1:t
-        traj[t] = sqrt(alpha_bar[t-1]) * traj[0] + sqrt(1 - alpha_bar[t-1]) * eps_0:t
-
-        traj[t-1] = sqrt(alpha_bar[t-2]) * traj[0] + sqrt(1 - alpha_bar[t-2]) * eps_0:t-1
-
-        sqrt(alpha[t-1]) * traj[t-1] + sqrt(beta[t-1]) * eps_t-1:t = sqrt(alpha_bar[t-1]) * traj[0] + sqrt(1 - alpha_bar[t-1]) * eps_0:t
-
-        sqrt(alpha[t-1]) * (sqrt(alpha_bar[t-2]) * traj[0] + sqrt(1 - alpha_bar[t-2]) * eps_0:t-1) + sqrt(beta[t-1]) * eps_t-1:t = sqrt(alpha_bar[t-1]) * traj[0] + sqrt(1 - alpha_bar[t-1]) * eps_0:t
-
-        eps_0:t =
-        (sqrt(alpha[t-1]) * (sqrt(alpha_bar[t-2]) * traj[0] + sqrt(1 - alpha_bar[t-2]) * eps_0:t-1) + sqrt(beta[t-1]) * eps_t-1:t - sqrt(alpha_bar[t-1]) * traj[0]) / sqrt(1 - alpha_bar[t-1])
-
-        term_1 = sqrt(alpha[t-1]) * sqrt(alpha_bar[t-2]) * traj[0]
-        term_2 = sqrt(alpha[t-1]) * sqrt(1 - alpha_bar[t-2]) * eps_0:t-1
-        term_3 = sqrt(1 - alpha[t-1]) * eps_t-1:t
-        term_4 = sqrt(alpha_bar[t-1]) * traj[0]
-        term_5 = sqrt(1 - alpha_bar[t-1])
-
-        eps_0:t = (term_1 + term_2 + term_3 - term_4) / term_5
-
-        term 1 and 4 cancel out, so we can simplify it to:
-        eps_0:t = (term_2 + term_3) / term_5 =
-        (sqrt(alpha[t-1]) * sqrt(1 - alpha_bar[t-2]) * eps_0:t-1 + sqrt(1 - alpha[t-1]) * eps_t-1:t) / sqrt(1 - alpha_bar[t-1])
 
         :param eps_0_to_t: Combined noise,  (B, 2, L)
         :param eps_t_to_tp1: Noise for step, (B, 2, L)
@@ -202,5 +180,20 @@ class DDIM:
         """
         original_shape = x_0.shape
         return (self.sqrt_αbar[t] * eps_0_to_t.flatten(1) - self.sqrt_1_m_αbar[t] * x_0.flatten(1)).view(original_shape)
+
+
+    def extractVelocity(self, x_0: Tensor, x_t: Tensor, t: int) -> Tensor:
+        """
+        According to diffuse:
+        x_t = sqrt(alpha_bar[t]) * x_0 + sqrt(1 - alpha_bar[t]) * eps_0:t
+
+        V = sqrt(alpha_bar[t]) * eps_0:t - sqrt(1 - alpha_bar[t]) * x_0
+        """
+
+        original_shape = x_0.shape
+
+        v_t = (self.sqrt_αbar[t] * x_t.flatten(1) - x_0.flatten(1)) / self.sqrt_1_m_αbar[t]
+
+        return v_t.view(original_shape)
 
 
