@@ -133,3 +133,8 @@ class JimmyModel(nn.Module):
         for param_name in current_state_dict.keys():
             if param_name not in loadable_state_dict and param_name not in mis_matched_keys:
                 print(f"Missing parameter '{param_name}' in model '{self.__class__.__name__}'.")
+
+
+    def getCompCost(self, *args, **kwargs):
+        from calflops import calculate_flops
+        calculate_flops(self, args=args, kwargs=kwargs)
