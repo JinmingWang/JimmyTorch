@@ -220,22 +220,32 @@ exp.lr_scheduler_cfg = DynamicConfig(
 exp.constants = {
     "n_epochs": 100,
     "moving_avg": 100,
-    "eval_interval": 5
+    "eval_interval": 5,
+    "early_stop_lr": 1e-6,  # Optional: early stopping threshold
+    "save_dir": None,  # Optional: custom checkpoint directory
+    "log_dir": None  # Optional: custom log directory
 }
 
 # Start training
 trainer = exp.start(checkpoint=None)
+
+# Optional: Test separately after training
+exp.dataset_cfg.set_name = "test"
+test_set = exp.dataset_cfg.build()
+test_report = exp.test(trainer.model, test_set)
+test_report.to_csv("test_results.csv")
 ```
 
 ### Table of Contents
 
 | Path | Class | Function | Description |
 |------|-------|----------|-------------|
-| `JimmyTrainer.py` | `JimmyTrainer` | `__init__(train_set, eval_set, model, lr_scheduler, log_dir, save_dir, n_epochs, moving_avg, eval_interval)` | Initialize trainer with datasets, model, and hyperparameters |
+| `JimmyTrainer.py` | `JimmyTrainer` | `__init__(train_set, eval_set, model, lr_scheduler, log_dir, save_dir, n_epochs, moving_avg, eval_interval, early_stop_lr)` | Initialize trainer with datasets, model, and hyperparameters |
 | `JimmyTrainer.py` | `JimmyTrainer` | `start()` | Execute full training loop with logging and checkpointing |
 | `JimmyTrainer.py` | `JimmyTrainer` | `evaluate(dataset, compute_avg)` | Evaluate model on dataset, return loss dict (averaged or per-sample) |
-| `JimmyExperiment.py` | `JimmyExperiment` | `__init__(comments)` | Initialize experiment with description string |
-| `JimmyExperiment.py` | `JimmyExperiment` | `start(checkpoint)` | Build components from configs and launch training |
+| `JimmyExperiment.py` | `JimmyExperiment` | `__init__(comments, dir_name)` | Initialize experiment with description and optional custom directory name |
+| `JimmyExperiment.py` | `JimmyExperiment` | `start(checkpoint)` | Build components from configs and launch training, returns trainer |
+| `JimmyExperiment.py` | `JimmyExperiment` | `test(model, test_set)` | Test model on dataset and return detailed report DataFrame |
 | `DynamicConfig.py` | `DynamicConfig` | `__init__(cls, **kwargs)` | Store class and initialization arguments |
 | `DynamicConfig.py` | `DynamicConfig` | `build()` | Instantiate class with stored arguments |
 | `DynamicConfig.py` | `DynamicConfig` | `add(**kwargs)` | Add or update arguments |
@@ -258,9 +268,14 @@ trainer = exp.start(checkpoint=None)
 ### Notes
 
 - **DynamicConfig Pattern**: Defers object instantiation until `build()` is called. Allows runtime modification of hyperparameters without recreating objects.
+- **Custom Directory Naming**: Pass `dir_name` parameter to `JimmyExperiment.__init__()` for meaningful run names instead of timestamps. If not provided, uses timestamp format `%y%m%d_%H%M%S`.
+- **Separated Testing**: Training and testing are now decoupled. `start()` only trains; use `test()` method for flexible evaluation on multiple configurations.
+- **Runtime Parameter Hot-Reload**: Training creates `runtime_param_buffer.yaml` in log directory. Edit this file during training to adjust learning rate on-the-fly (changes apply on next epoch).
+- **Trainer Type Selection**: Set `experiment.trainer_type` to use custom trainer classes for different training paradigms (e.g., iteration-based, GAN training).
+- **Early Stopping**: Set `early_stop_lr` in constants to automatically stop training when learning rate drops below threshold.
 - **JimmyLRScheduler Phases**: (1) Warmup with sinusoidal ramp to peak_lr, (2) Cosine annealing with high-frequency modulation, (3) Exponential decay on plateau detection.
 - **Plateau Detection**: LR scheduler tracks moving average of metric over `window_size` epochs. If no improvement for `patience` epochs, triggers decay.
-- **Automatic Directory Structure**: Experiment creates `Runs/{DatasetName}/{ModelName}/{Timestamp}/` for logs, checkpoints, and configs.
+- **Automatic Directory Structure**: Experiment creates `Runs/{DatasetName}/{ModelName}/{dir_name}/` for logs, checkpoints, and configs. Custom paths via `save_dir` and `log_dir` in constants.
 - **Checkpoint Strategy**: Saves `best.pth` (lowest eval loss) and `last.pth` (most recent) every `eval_interval` epochs.
 - **ProgressManager**: Uses Rich library for live-updating terminal display. Shows recent N epochs, ETA, and custom metrics.
 - **Metric Logging**: Training metrics use moving average (reduces noise), evaluation metrics are raw values.
@@ -276,11 +291,11 @@ trainer = exp.start(checkpoint=None)
 
 3. **Configure Experiment**: Create `JimmyExperiment` instance, configure `dataset_cfg`, `model_cfg`, `lr_scheduler_cfg` using `DynamicConfig`, set training constants (`n_epochs`, `eval_interval`, etc.).
 
-4. **Launch Training**: Call `experiment.start(checkpoint=None)` to build components, create directories, and execute training loop.
+4. **Launch Training**: Call `experiment.start(checkpoint=None)` to build components, create directories, and execute training loop. Returns trainer object for further use.
 
-5. **Monitor Progress**: View real-time progress in terminal via `ProgressManager`, check TensorBoard logs at `Runs/{DatasetName}/{ModelName}/{Timestamp}/`.
+5. **Monitor Progress**: View real-time progress in terminal via `ProgressManager`, check TensorBoard logs at `Runs/{DatasetName}/{ModelName}/{dir_name}/`. During training, edit `runtime_param_buffer.yaml` to adjust learning rate.
 
-6. **Evaluate and Test**: After training, `JimmyExperiment` automatically runs `evaluate()` on test set and saves detailed report to `test_report.csv`.
+6. **Evaluate and Test**: After training, call `experiment.test(model, test_set)` to evaluate on test set and get detailed DataFrame report. Save with `test_report.to_csv()`. Can test multiple configurations without retraining.
 
 7. **Customize for New Tasks**: For different training pipelines (e.g., GANs, reinforcement learning), implement custom `Trainer` and `Experiment` classes following the same patterns. Use `main.py` as template for entry scripts.
 

@@ -218,22 +218,32 @@ exp.lr_scheduler_cfg = DynamicConfig(
 exp.constants = {
     "n_epochs": 100,
     "moving_avg": 100,
-    "eval_interval": 5
+    "eval_interval": 5,
+    "early_stop_lr": 1e-6,  # 可选：早停阈值
+    "save_dir": None,  # 可选：自定义检查点目录
+    "log_dir": None  # 可选：自定义日志目录
 }
 
 # 开始训练
 trainer = exp.start(checkpoint=None)
+
+# 可选：训练后单独测试
+exp.dataset_cfg.set_name = "test"
+test_set = exp.dataset_cfg.build()
+test_report = exp.test(trainer.model, test_set)
+test_report.to_csv("test_results.csv")
 ```
 
 ### 目录索引
 
 | 路径 | 类 | 函数 | 描述 |
 |------|-------|----------|-------------|
-| `JimmyTrainer.py` | `JimmyTrainer` | `__init__(train_set, eval_set, model, lr_scheduler, log_dir, save_dir, n_epochs, moving_avg, eval_interval)` | 使用数据集、模型和超参数初始化训练器 |
+| `JimmyTrainer.py` | `JimmyTrainer` | `__init__(train_set, eval_set, model, lr_scheduler, log_dir, save_dir, n_epochs, moving_avg, eval_interval, early_stop_lr)` | 使用数据集、模型和超参数初始化训练器 |
 | `JimmyTrainer.py` | `JimmyTrainer` | `start()` | 执行完整训练循环，包含日志和检查点 |
 | `JimmyTrainer.py` | `JimmyTrainer` | `evaluate(dataset, compute_avg)` | 在数据集上评估模型，返回损失字典（平均或每样本） |
-| `JimmyExperiment.py` | `JimmyExperiment` | `__init__(comments)` | 使用描述字符串初始化实验 |
-| `JimmyExperiment.py` | `JimmyExperiment` | `start(checkpoint)` | 从配置构建组件并启动训练 |
+| `JimmyExperiment.py` | `JimmyExperiment` | `__init__(comments, dir_name)` | 使用描述字符串和可选的自定义目录名初始化实验 |
+| `JimmyExperiment.py` | `JimmyExperiment` | `start(checkpoint)` | 从配置构建组件并启动训练，返回训练器对象 |
+| `JimmyExperiment.py` | `JimmyExperiment` | `test(model, test_set)` | 在数据集上测试模型并返回详细报告 DataFrame |
 | `DynamicConfig.py` | `DynamicConfig` | `__init__(cls, **kwargs)` | 存储类和初始化参数 |
 | `DynamicConfig.py` | `DynamicConfig` | `build()` | 使用存储的参数实例化类 |
 | `DynamicConfig.py` | `DynamicConfig` | `add(**kwargs)` | 添加或更新参数 |
@@ -256,9 +266,14 @@ trainer = exp.start(checkpoint=None)
 ### 注意事项
 
 - **DynamicConfig模式**：延迟对象实例化直到调用 `build()`。允许在不重新创建对象的情况下运行时修改超参数。
+- **自定义目录命名**：向 `JimmyExperiment.__init__()` 传递 `dir_name` 参数以使用有意义的运行名称而不是时间戳。如果未提供，使用时间戳格式 `%y%m%d_%H%M%S`。
+- **分离的测试**：训练和测试现已解耦。`start()` 仅训练；使用 `test()` 方法在多个配置上灵活评估。
+- **运行时参数热重载**：训练在日志目录中创建 `runtime_param_buffer.yaml`。在训练期间编辑此文件以即时调整学习率（更改在下一轮次应用）。
+- **训练器类型选择**：设置 `experiment.trainer_type` 以使用自定义训练器类用于不同的训练范式（例如，基于迭代、GAN训练）。
+- **早停**：在常量中设置 `early_stop_lr` 以在学习率降至阈值以下时自动停止训练。
 - **JimmyLRScheduler阶段**：(1) 正弦上升到 peak_lr 的预热，(2) 带高频调制的余弦退火，(3) 检测到停滞时的指数衰减。
 - **停滞检测**：LR调度器跟踪 `window_size` 个轮次的指标移动平均。如果 `patience` 个轮次无改善，触发衰减。
-- **自动目录结构**：实验创建 `Runs/{数据集名}/{模型名}/{时间戳}/` 用于日志、检查点和配置。
+- **自动目录结构**：实验创建 `Runs/{数据集名}/{模型名}/{dir_name}/` 用于日志、检查点和配置。通过常量中的 `save_dir` 和 `log_dir` 自定义路径。
 - **检查点策略**：每 `eval_interval` 轮次保存 `best.pth`（最低评估损失）和 `last.pth`（最新）。
 - **ProgressManager**：使用 Rich 库实时更新终端显示。显示最近N个轮次、ETA和自定义指标。
 - **指标记录**：训练指标使用移动平均（减少噪声），评估指标是原始值。
@@ -274,11 +289,11 @@ trainer = exp.start(checkpoint=None)
 
 3. **配置实验**：创建 `JimmyExperiment` 实例，使用 `DynamicConfig` 配置 `dataset_cfg`、`model_cfg`、`lr_scheduler_cfg`，设置训练常量（`n_epochs`、`eval_interval` 等）。
 
-4. **启动训练**：调用 `experiment.start(checkpoint=None)` 构建组件、创建目录并执行训练循环。
+4. **启动训练**：调用 `experiment.start(checkpoint=None)` 构建组件、创建目录并执行训练循环。返回训练器对象供进一步使用。
 
-5. **监控进度**：通过 `ProgressManager` 在终端查看实时进度，在 `Runs/{数据集名}/{模型名}/{时间戳}/` 检查 TensorBoard 日志。
+5. **监控进度**：通过 `ProgressManager` 在终端查看实时进度，在 `Runs/{数据集名}/{模型名}/{dir_name}/` 检查 TensorBoard 日志。训练期间，编辑 `runtime_param_buffer.yaml` 以调整学习率。
 
-6. **评估和测试**：训练后，`JimmyExperiment` 自动在测试集上运行 `evaluate()` 并保存详细报告到 `test_report.csv`。
+6. **评估和测试**：训练后，调用 `experiment.test(model, test_set)` 在测试集上评估并获取详细的 DataFrame 报告。使用 `test_report.to_csv()` 保存。可以在不重新训练的情况下测试多个配置。
 
 7. **针对新任务定制**：对于不同的训练流程（如GANs、强化学习），按照相同模式实现自定义 `Trainer` 和 `Experiment` 类。使用 `main.py` 作为入口脚本模板。
 

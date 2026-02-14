@@ -20,8 +20,8 @@ class SampleCNN(JimmyModel):
 
         self.fc = FCLayers([64 * 7 * 7, 256, 10], act=nn.LeakyReLU(inplace=True, negative_slope=0.01))
 
-        self.train_loss_names = ["Train_CE"]
-        self.eval_loss_names = ["Eval_CE"]
+        self.train_loss_names = ["Train/Main"]
+        self.eval_loss_names = ["Eval/Main"]
         self.ce_loss = nn.CrossEntropyLoss()
 
     def forward(self, x):
@@ -65,11 +65,11 @@ class SampleCNN(JimmyModel):
         # Zero the gradients
         self.optimizer.zero_grad()
 
-        return {"Train_CE": loss.item()}, {"output": output.detach()}
+        return {"Train/Main": loss.item()}, {"output": output.detach()}
 
 
     def evalStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
         with torch.no_grad():
             output = self(data_dict['input']).detach()
             loss = self.ce_loss(output, data_dict['target']).item()
-        return {"Eval_CE": loss}, {"output": output.detach()}
+        return {"Eval/Main": loss}, {"output": output.detach()}
