@@ -8,6 +8,7 @@ import os
 from rich import print as rprint
 from typing import Dict, Any
 import inspect
+import yaml
 
 
 class JimmyTrainer:
@@ -22,7 +23,8 @@ class JimmyTrainer:
                  save_dir: str,
                  n_epochs: int,
                  moving_avg: int,
-                 eval_interval: int) -> None:
+                 eval_interval: int = 1,
+                 early_stop_lr: float = 0.0) -> None:
         """
         Initialize the trainer with a dataset, model, optimizer, and comments.
 
@@ -33,8 +35,8 @@ class JimmyTrainer:
         :param log_dir: A string specifying the directory where the training logs will be saved.
         :param save_dir: A string specifying the directory where the model checkpoints will be saved.
         :param moving_avg: An integer specifying the window size for calculating the moving average of the loss. Default is 100.
-        :param mixed_precision: A boolean indicating whether to use mixed precision training. Default is False.
-        :param clip_grad: A float specifying the maximum gradient norm for gradient clipping. Default is 0.0 (no clipping).
+        :param eval_interval: An integer specifying the interval (in epochs) at which to evaluate the model on the validation set.
+        :param early_stop_lr: A float specifying the learning rate threshold for early stopping. Default is 0.0 (no early stopping).
         """
 
         self.train_set = train_set
@@ -55,6 +57,7 @@ class JimmyTrainer:
         self.n_epochs = n_epochs
         self.moving_avg = moving_avg
         self.eval_interval = eval_interval
+        self.early_stop_lr = early_stop_lr
 
 
     def start(self) -> None:
@@ -69,6 +72,11 @@ class JimmyTrainer:
         pm = ProgressManager(self.train_set.n_batches, self.n_epochs, 5, 2, custom_fields=pm_log_tags)
         tm = TensorBoardManager(self.log_dir, tags=tm_log_tags, value_types=["scalar"] * len(tm_log_tags))
         ma_losses = {name: MovingAvg(self.moving_avg) for name in self.model.train_loss_names}
+
+        # Runtime parameter buffer for hot-reloading hyperparameters during training
+        runtime_param_file = os.path.join(self.log_dir, "runtime_param_buffer.yaml")
+        with open(runtime_param_file, "w") as f:
+            yaml.dump({"LR": self.model.optimizer.param_groups[0]["lr"]}, f)
 
         best_loss = float('inf')
 
@@ -90,7 +98,18 @@ class JimmyTrainer:
             tm.log(pm.overall_progress, LR=self.model.lr, **loss_dict)
 
             # Update learning rate scheduler
+            prev_lr = self.model.lr
             self.lr_scheduler.update(loss_dict["Train/Main"])
+            
+            # Update runtime param file when LR changes
+            if self.model.lr != prev_lr:
+                with open(runtime_param_file, "w") as f:
+                    yaml.dump({"LR": self.model.lr}, f)
+            
+            # Load runtime parameters (allows user to manually adjust LR during training)
+            with open(runtime_param_file, "r") as f:
+                runtime_params = yaml.safe_load(f)
+                self.model.optimizer.param_groups[0]["lr"] = float(runtime_params["LR"])
 
             if epoch % self.eval_interval == 0:
                 eval_losses = self.evaluate(self.eval_set)
@@ -104,6 +123,11 @@ class JimmyTrainer:
                     best_loss = eval_loss
                     self.model.saveTo(os.path.join(self.save_dir, "best.pth"))
                 self.model.saveTo(os.path.join(self.save_dir, f"last.pth"))
+
+            # Early stopping based on learning rate threshold
+            if self.early_stop_lr > 0 and self.model.lr < self.early_stop_lr:
+                rprint(f"[red]Learning rate {self.model.lr} is lower than early stop threshold {self.early_stop_lr}. Stopping training.[/red]")
+                break
 
         pm.close()
 

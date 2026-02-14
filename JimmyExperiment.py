@@ -9,6 +9,7 @@ from datetime import datetime
 import os
 from rich import print as rprint
 import pandas as pd
+import yaml
 
 
 class JimmyExperiment:
@@ -18,8 +19,9 @@ class JimmyExperiment:
     the new set of hyperparameters and constants.
     """
 
-    def __init__(self, comments: str):
+    def __init__(self, comments: str, dir_name: str = None):
         self.comments = comments
+        self.dir_name = dir_name if dir_name is not None else datetime.now().strftime("%y%m%d_%H%M%S")
 
         self.model_cfg = DynamicConfig(SampleCNN,
                                        optimizer_cls=torch.optim.Adam,
@@ -47,7 +49,13 @@ class JimmyExperiment:
         self.constants = {
             "n_epochs": 100,
             "moving_avg": 100,
+            "eval_interval": 1,
+            "save_dir": None,
+            "log_dir": None,
         }
+
+        # Allow trainer type selection for different training paradigms
+        self.trainer_type = JimmyTrainer
 
 
     def __str__(self):
@@ -66,7 +74,7 @@ class JimmyExperiment:
         """
         Start the experiment with the given comments.
         :param checkpoint: The checkpoint to load the model from.
-        :return: A `JimmyTrainer` object with amost everything during a training session.
+        :return: A `JimmyTrainer` object with almost everything during a training session.
         """
         rprint(f"[#00ff00]--- Start Experiment \"{self.comments}\" ---[/#00ff00]")
 
@@ -87,42 +95,63 @@ class JimmyExperiment:
         trainer_kwargs = {"train_set": train_set, "eval_set": eval_set, "model": model, "lr_scheduler": lr_scheduler}
         trainer_kwargs.update(self.constants)
 
-        # Create Experiment directories
-        now_str = datetime.now().strftime("%y%m%d_%H%M%S")
-        dataset_name = trainer_kwargs["train_set"].__class__.__name__
-        model_name = model.__class__.__name__
-        save_dir = f"Runs/{dataset_name}/{model_name}/{now_str}/"
-        log_dir = save_dir
+        # Create Experiment directories with custom or auto-generated name
+        if self.constants["save_dir"] is None:
+            dataset_name = train_set.__class__.__name__
+            model_name = model.__class__.__name__
+            save_dir = f"Runs/{dataset_name}/{model_name}/{self.dir_name}/"
+            self.constants["save_dir"] = save_dir
+        else:
+            self.constants["save_dir"] = os.path.join(self.constants["save_dir"], self.dir_name)
+
+        if self.constants["log_dir"] is None:
+            self.constants["log_dir"] = self.constants["save_dir"]
+        else:
+            self.constants["log_dir"] = os.path.join(self.constants["log_dir"], self.dir_name)
 
         # Create directories if they do not exist
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        if not os.path.exists(self.constants['save_dir']):
+            os.makedirs(self.constants['save_dir'])
 
-        with open(os.path.join(log_dir, "model_arch.txt"), "w") as f:
+        if not os.path.exists(self.constants['log_dir']):
+            os.makedirs(self.constants['log_dir'])
+
+        with open(os.path.join(self.constants['log_dir'], "model_arch.txt"), "w") as f:
             f.write(str(model))
 
-        with open(os.path.join(log_dir, "comments.txt"), "w") as f:
-            f.write(f"{self.comments}.\n{self.__str__()}")
+        with open(os.path.join(self.constants['log_dir'], "comments.txt"), "w") as f:
+            f.write(f"{self.comments}\n{self.__str__()}")
 
-        rprint(f"[blue]Save directory: {save_dir}.[/blue]")
-        rprint(f"[blue]Log directory: {log_dir}.[/blue]")
+        rprint(f"[blue]Save directory: {self.constants['save_dir']}.[/blue]")
+        rprint(f"[blue]Log directory: {self.constants['log_dir']}.[/blue]")
 
-        trainer_kwargs["log_dir"] = log_dir
-        trainer_kwargs["save_dir"] = save_dir
+        trainer_kwargs["log_dir"] = self.constants['log_dir']
+        trainer_kwargs["save_dir"] = self.constants['save_dir']
 
-        trainer = JimmyTrainer(**trainer_kwargs)
+        trainer = self.trainer_type(**trainer_kwargs)
         trainer.start()
 
-        rprint(f"[blue]Training done. Start testing.[/blue]")
-        self.dataset_cfg.set_name = "test"
-        test_set = self.dataset_cfg.build()
-        test_losses = trainer.evaluate(test_set, compute_avg=False)
-
-        test_report = pd.DataFrame.from_dict(test_losses)
-        test_report.to_csv(os.path.join(log_dir, "test_report.csv"))
-
-        rprint(f"[blue]Testing done. Reports saved to: {os.path.join(log_dir, 'test_report.csv')}.[/blue]")
-
         return trainer
+
+
+    def test(self, model, test_set) -> pd.DataFrame:
+        """
+        Test the model on a test set and return a detailed report.
+        :param model: The trained model.
+        :param test_set: The test dataset.
+        :return: A pandas DataFrame with test results.
+        """
+        rprint(f"[blue]Testing on {self.comments}[/blue]")
+        model.eval()
+
+        test_losses = {name: torch.zeros(test_set.n_batches).to(DEVICE) for name in model.eval_loss_names}
+        for i, data_dict in enumerate(test_set):
+            loss_dict, output_dict = model.testStep(data_dict)
+
+            for name in model.eval_loss_names:
+                test_losses[name][i] = loss_dict[name]
+
+        test_report = pd.DataFrame.from_dict({name: test_losses[name].cpu().numpy() for name in model.eval_loss_names})
+        return test_report
 
 
