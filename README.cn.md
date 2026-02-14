@@ -44,6 +44,7 @@ for batch_dict in train_set:
 
 | 路径 | 类 | 函数 | 描述 |
 |------|-------|----------|-------------|
+| `Datasets/__init__.py` | - | - | 数据集模块的初始化文件 |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | - | 基础数据集类，结合 Dataset + DataLoader 功能 |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | `__init__(batch_size, drop_last, shuffle)` | 用批处理参数初始化数据集 |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | `__getitem__(idx)` | 返回索引 idx 的批次字典（从1开始） |
@@ -130,8 +131,12 @@ model.initialize()  # 创建优化器
 
 ### 目录索引
 
-| 路径 | 类 | 函数 | 描述 |
-|------|-------|----------|-------------|
+| 路径                                | 类 | 函数 | 描述 |
+|-----------------------------------|---|----------|-------------|
+| `Models/__init__.py`              | - | - | 模型模块的初始化文件 |
+| `Models/<MethodName>/__init__.py` | - | - | 每个方法的模型实现目录（例如 `Models/JimmyModel.py`）
+| `Models/<MethodName>/<ModelName>.py` | `ModelName` | - | 具体模型实现类（例如 `JimmyModel`） |
+| `Models/<MethodName>/components.py` | - | - | 该方法的构建块（卷积块、注意力层、位置编码等） |
 | `Models/JimmyModel.py` | `JimmyModel` | `__init__(optimizer_cls, optimizer_args, mixed_precision, compile_model, clip_grad)` | 使用训练配置初始化模型 |
 | `Models/JimmyModel.py` | `JimmyModel` | `initialize()` | 创建优化器，可选编译模型 |
 | `Models/JimmyModel.py` | `JimmyModel` | `trainStep(data_dict)` | 执行一个训练步骤：前向、反向、优化。返回 loss_dict 和 output_dict |
@@ -238,6 +243,7 @@ test_report.to_csv("test_results.csv")
 
 | 路径 | 类 | 函数 | 描述 |
 |------|-------|----------|-------------|
+| `Training/__init__.py` | - | - | 训练模块的初始化文件 |
 | `JimmyTrainer.py` | `JimmyTrainer` | `__init__(train_set, eval_set, model, lr_scheduler, log_dir, save_dir, n_epochs, moving_avg, eval_interval, early_stop_lr)` | 使用数据集、模型和超参数初始化训练器 |
 | `JimmyTrainer.py` | `JimmyTrainer` | `start()` | 执行完整训练循环，包含日志和检查点 |
 | `JimmyTrainer.py` | `JimmyTrainer` | `evaluate(dataset, compute_avg)` | 在数据集上评估模型，返回损失字典（平均或每样本） |

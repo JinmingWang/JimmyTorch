@@ -92,16 +92,30 @@ class JimmyModel(nn.Module):
         return {"Train/Main": loss.item()}, {"output": output.detach()}
 
     def evalStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+        """
+        Evaluation step with visualization support.
+        Returns loss dict and output dict (which may contain 'fig' key for visualization).
+        """
+        # Here we can add code to generate visualizations (e.g., figures) based on the model output and input data.
+        test_returns = self.testStep(data_dict)  # Get the test step results (metrics and output)
+        test_returns[1]['fig'] = torch.zeors(4, 4, 3).numpy()  # Placeholder for visualization figure, replace with actual figure generation code
+
+        return test_returns
+
+
+
+    def testStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+        """
+        Test step for pure metric computation without visualization.
+        By default, calls evalStep. Override for different behavior.
+        
+        Note: testStep should only compute metrics, while evalStep may also generate
+        visualizations (figures) which are logged to TensorBoard during training.
+        """
         with torch.no_grad():
             output = self(data_dict['data']).detach()
             loss = self.loss_fn(output, data_dict['target']).item()
         return {"Eval/Main": loss}, {"output": output.detach()}
-
-
-    def testStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
-        # Sometimes, test steps can be different from eval steps.
-        # For example, it may not want to draw any figures, and want to return unreduced losses
-        return self.evalStep(data_dict)
 
 
     def saveTo(self, path: str):

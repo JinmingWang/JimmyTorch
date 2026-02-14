@@ -2,6 +2,13 @@
 
 A personal PyTorch-based deep learning framework integrating dataset management, model training, experiment orchestration, and visualization. Optimized for research workflows with trajectory/sequential data.
 
+The following files give a example of how to build a project with JimmyTorch:
+`main.py` - Entry point for training and testing, defines dataset/model classes and experiment configuration.
+`JimmyExperiment.py` - Manages experiment lifecycle, including configuration, training loop, and testing.
+`JimmyTrainer.py` - Implements the training loop, evaluation, checkpointing, and logging.
+`Models/SampleCNN/*` - Example model implementation.
+`Datasets/MNISTDataset.py` - Example dataset implementation.
+
 [![en](https://img.shields.io/badge/lang-en-blue.svg)](README.md)
 [![cn](https://img.shields.io/badge/lang-cn-red.svg)](README.cn.md)
 
@@ -44,6 +51,7 @@ for batch_dict in train_set:
 
 | Path | Class | Function | Description |
 |------|-------|----------|-------------|
+|`Datasets/__init__.py`| - | - | Package initialization |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | - | Base dataset class combining Dataset + DataLoader functionality |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | `__init__(batch_size, drop_last, shuffle)` | Initialize dataset with batching parameters |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | `__getitem__(idx)` | Return batch dictionary for index idx (1-indexed) |
@@ -130,42 +138,46 @@ model.initialize()  # Create optimizer
 
 ### Table of Contents
 
-| Path | Class | Function | Description |
-|------|-------|----------|-------------|
-| `Models/JimmyModel.py` | `JimmyModel` | `__init__(optimizer_cls, optimizer_args, mixed_precision, compile_model, clip_grad)` | Initialize model with training configuration |
-| `Models/JimmyModel.py` | `JimmyModel` | `initialize()` | Create optimizer and optionally compile model |
-| `Models/JimmyModel.py` | `JimmyModel` | `trainStep(data_dict)` | Execute one training step: forward, backward, optimize. Return loss_dict and output_dict |
-| `Models/JimmyModel.py` | `JimmyModel` | `evalStep(data_dict)` | Execute one evaluation step. Return loss_dict and output_dict |
-| `Models/JimmyModel.py` | `JimmyModel` | `testStep(data_dict)` | Execute one test step (default: calls evalStep) |
-| `Models/JimmyModel.py` | `JimmyModel` | `backwardOptimize(loss)` | Perform backward pass with mixed precision and gradient clipping |
-| `Models/JimmyModel.py` | `JimmyModel` | `saveTo(path)` | Save model state_dict to path |
-| `Models/JimmyModel.py` | `JimmyModel` | `loadFrom(path)` | Load model state_dict from path with size mismatch handling |
-| `Models/JimmyModel.py` | `JimmyModel` | `lr` | Property returning current learning rate |
-| `Models/Basics.py` | `Conv1DBnReLU` | `__init__(c_in, c_out, k, s, p, d, g)` | 1D Conv → BatchNorm → ReLU block |
-| `Models/Basics.py` | `Conv2DBnGELU` | `__init__(c_in, c_out, k, s, p, d, g)` | 2D Conv → BatchNorm → GELU block |
-| `Models/Basics.py` | `BnReLUConv1D` | `__init__(c_in, c_out, k, s, p, d, g)` | BatchNorm → ReLU → 1D Conv block (pre-activation) |
-| `Models/Basics.py` | `FCLayers` / `MLP` | `__init__(channel_list, act, final_act)` | Multi-layer perceptron with configurable activation |
-| `Models/Basics.py` | `PosEncoderSinusoidal` | `__init__(dim, max_len, merge_mode, d_pe)` | Sinusoidal positional encoding (add/concat) |
-| `Models/Basics.py` | `PosEncoderLearned` | `__init__(dim, max_len, merge_mode)` | Learned positional encoding |
-| `Models/Basics.py` | `PosEncoderRotary` | `__init__(dim, max_len, base)` | Rotary positional encoding (RoPE) |
-| `Models/Basics.py` | `PatchMaker1D` | `__init__(patch_size, stride, patch_as_vector)` | Extract 1D patches from sequences |
-| `Models/Basics.py` | `PatchMaker2D` | `__init__(patch_size, stride, patch_as_vector, flatten)` | Extract 2D patches from images |
-| `Models/Attentions.py` | `MHSA` | `__init__(d_in, num_heads, dropout)` | Multi-head self-attention with QKV projections |
-| `Models/Attentions.py` | `CrossAttention` | `__init__(d_in, num_heads, dropout)` | Cross-attention between query and key-value pairs |
-| `Models/Attentions.py` | `SELayer1D` | `__init__(c_in, reduction)` | Squeeze-and-Excitation for 1D features |
-| `Models/Attentions.py` | `SELayer2D` | `__init__(c_in, reduction)` | Squeeze-and-Excitation for 2D features |
-| `Models/ModelUtils.py` | `Transpose` | `__init__(dim1, dim2)` | Transpose layer for nn.Sequential |
-| `Models/ModelUtils.py` | `Permute` | `__init__(*dims)` | Permute layer for nn.Sequential |
-| `Models/ModelUtils.py` | `Reshape` | `__init__(*shape)` | Reshape layer for nn.Sequential |
-| `Models/ModelUtils.py` | `PrintShape` | `__init__(name)` | Debug layer to print tensor shape |
-| `Models/ModelUtils.py` | `SequentialMultiIO` | `forward(*dynamic_inputs, **static_inputs)` | Sequential module supporting multiple inputs/outputs |
-| `Models/ModelUtils.py` | `Rearrange` | - | Einops-like rearrangement (implementation pending) |
-| `Models/LossFunctions.py` | `MaskedLoss` | `__init__(base_loss)` | Apply loss only to masked elements |
-| `Models/LossFunctions.py` | `SequentialLossWithLength` | `__init__(base_loss)` | Apply loss to sequences with variable lengths |
-| `Models/LossFunctions.py` | `RMSE` | - | Root Mean Square Error loss |
-| `Models/Functional.py` | - | `getAutoCast(data, mixed_precision)` | Return autocast context for mixed precision |
-| `DiffusionModels/DDPM.py` | `DDPM` | - | Denoising Diffusion Probabilistic Models implementation |
-| `DiffusionModels/DDIM.py` | `DDIM` | - | Denoising Diffusion Implicit Models implementation |
+| Path                              | Class                      | Function | Description                                                                                  |
+|-----------------------------------|----------------------------|----------|----------------------------------------------------------------------------------------------|
+| `Models/__init__.py`              | -                          | - | Package initialization                                                                       |
+| `Models/<MethodName>/__init__.py` | -                          | - | Method implementation template: model package initialization                                 |
+| `Models/<MethodName>/<ModelName>.py` | `<ModelName>` | - | Model implementation, a method can have multiple model variants (e.g., TrajUNet, TrajUNetV2) |
+|`Models/<MethodName>/components.py`| - | - | Building block components specific to the method (e.g., TrajUNet blocks)                     |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `__init__(optimizer_cls, optimizer_args, mixed_precision, compile_model, clip_grad)` | Init model with training config                                                              |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `initialize()` | Create optimizer and optionally compile model                                                |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `trainStep(data_dict)` | Execute one training step: forward, backward, optimize. Return loss_dict and output_dict     |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `evalStep(data_dict)` | Execute one evaluation step. Return loss_dict and output_dict                                |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `testStep(data_dict)` | Execute one test step (default: calls evalStep)                                              |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `backwardOptimize(loss)` | Perform backward pass with mixed precision and gradient clipping                             |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `saveTo(path)` | Save model state_dict to path                                                                |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `loadFrom(path)` | Load model state_dict from path with size mismatch handling                                  |
+| `Models/JimmyModel.py`            | `JimmyModel`               | `lr` | Property returning current learning rate                                                     |
+| `Models/Basics.py`                | `Conv1DBnReLU`             | `__init__(c_in, c_out, k, s, p, d, g)` | 1D Conv → BatchNorm → ReLU block                                                             |
+| `Models/Basics.py`                | `Conv2DBnGELU`             | `__init__(c_in, c_out, k, s, p, d, g)` | 2D Conv → BatchNorm → GELU block                                                             |
+| `Models/Basics.py`                | `BnReLUConv1D`             | `__init__(c_in, c_out, k, s, p, d, g)` | BatchNorm → ReLU → 1D Conv block (pre-activation)                                            |
+| `Models/Basics.py`                | `FCLayers` / `MLP`         | `__init__(channel_list, act, final_act)` | Multi-layer perceptron with configurable activation                                          |
+| `Models/Basics.py`                | `PosEncoderSinusoidal`     | `__init__(dim, max_len, merge_mode, d_pe)` | Sinusoidal positional encoding (add/concat)                                                  |
+| `Models/Basics.py`                | `PosEncoderLearned`        | `__init__(dim, max_len, merge_mode)` | Learned positional encoding                                                                  |
+| `Models/Basics.py`                | `PosEncoderRotary`         | `__init__(dim, max_len, base)` | Rotary positional encoding (RoPE)                                                            |
+| `Models/Basics.py`                | `PatchMaker1D`             | `__init__(patch_size, stride, patch_as_vector)` | Extract 1D patches from sequences                                                            |
+| `Models/Basics.py`                | `PatchMaker2D`             | `__init__(patch_size, stride, patch_as_vector, flatten)` | Extract 2D patches from images                                                               |
+| `Models/Attentions.py`            | `MHSA`                     | `__init__(d_in, num_heads, dropout)` | Multi-head self-attention with QKV projections                                               |
+| `Models/Attentions.py`            | `CrossAttention`           | `__init__(d_in, num_heads, dropout)` | Cross-attention between query and key-value pairs                                            |
+| `Models/Attentions.py`            | `SELayer1D`                | `__init__(c_in, reduction)` | Squeeze-and-Excitation for 1D features                                                       |
+| `Models/Attentions.py`            | `SELayer2D`                | `__init__(c_in, reduction)` | Squeeze-and-Excitation for 2D features                                                       |
+| `Models/ModelUtils.py`            | `Transpose`                | `__init__(dim1, dim2)` | Transpose layer for nn.Sequential                                                            |
+| `Models/ModelUtils.py`            | `Permute`                  | `__init__(*dims)` | Permute layer for nn.Sequential                                                              |
+| `Models/ModelUtils.py`            | `Reshape`                  | `__init__(*shape)` | Reshape layer for nn.Sequential                                                              |
+| `Models/ModelUtils.py`            | `PrintShape`               | `__init__(name)` | Debug layer to print tensor shape                                                            |
+| `Models/ModelUtils.py`            | `SequentialMultiIO`        | `forward(*dynamic_inputs, **static_inputs)` | Sequential module supporting multiple inputs/outputs                                         |
+| `Models/ModelUtils.py`            | `Rearrange`                | - | Einops-like rearrangement (implementation pending)                                           |
+| `Models/LossFunctions.py`         | `MaskedLoss`               | `__init__(base_loss)` | Apply loss only to masked elements                                                           |
+| `Models/LossFunctions.py`         | `SequentialLossWithLength` | `__init__(base_loss)` | Apply loss to sequences with variable lengths                                                |
+| `Models/LossFunctions.py`         | `RMSE`                     | - | Root Mean Square Error loss                                                                  |
+| `Models/Functional.py`            | -                          | `getAutoCast(data, mixed_precision)` | Return autocast context for mixed precision                                                  |
+| `DiffusionModels/DDPM.py`         | `DDPM`                     | - | Denoising Diffusion Probabilistic Models implementation                                      |
+| `DiffusionModels/DDIM.py`         | `DDIM`                     | - | Denoising Diffusion Implicit Models implementation                                           |
 
 ### Notes
 
@@ -240,6 +252,7 @@ test_report.to_csv("test_results.csv")
 
 | Path | Class | Function | Description |
 |------|-------|----------|-------------|
+| `Training/__init__.py` | - | - | Package initialization |
 | `JimmyTrainer.py` | `JimmyTrainer` | `__init__(train_set, eval_set, model, lr_scheduler, log_dir, save_dir, n_epochs, moving_avg, eval_interval, early_stop_lr)` | Initialize trainer with datasets, model, and hyperparameters |
 | `JimmyTrainer.py` | `JimmyTrainer` | `start()` | Execute full training loop with logging and checkpointing |
 | `JimmyTrainer.py` | `JimmyTrainer` | `evaluate(dataset, compute_avg)` | Evaluate model on dataset, return loss dict (averaged or per-sample) |

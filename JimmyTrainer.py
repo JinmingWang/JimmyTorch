@@ -71,6 +71,8 @@ class JimmyTrainer:
         # Initialize progress manager and tensorboard manager
         pm = ProgressManager(self.train_set.n_batches, self.n_epochs, 5, 2, custom_fields=pm_log_tags)
         tm = TensorBoardManager(self.log_dir, tags=tm_log_tags, value_types=["scalar"] * len(tm_log_tags))
+        tm.writer.add_text("Comments", "Training Started")
+        tm.register("Visualization", "figure")
         ma_losses = {name: MovingAvg(self.moving_avg) for name in self.model.train_loss_names}
 
         # Runtime parameter buffer for hot-reloading hyperparameters during training
@@ -112,7 +114,7 @@ class JimmyTrainer:
                 self.model.optimizer.param_groups[0]["lr"] = float(runtime_params["LR"])
 
             if epoch % self.eval_interval == 0:
-                eval_losses = self.evaluate(self.eval_set)
+                eval_losses = self.evaluate(self.eval_set, pm=pm, tm=tm)
 
                 # 更新tensorboard
                 tm.log(pm.overall_progress, **eval_losses)
@@ -132,7 +134,11 @@ class JimmyTrainer:
         pm.close()
 
 
-    def evaluate(self, dataset: JimmyDataset, compute_avg: bool=True):
+    def evaluate(self,
+                 dataset: JimmyDataset,
+                 compute_avg: bool=True,
+                 pm: ProgressManager = None,
+                 tm: TensorBoardManager = None):
         n_batches = dataset.n_batches
         eval_losses = {name: torch.zeros(n_batches).to(DEVICE) for name in self.model.eval_loss_names}
         self.model.eval()
@@ -142,6 +148,10 @@ class JimmyTrainer:
 
             for name in self.model.eval_loss_names:
                 eval_losses[name][i] = loss_dict[name]
+
+        # Log visualization if available
+        if tm is not None and "fig" in output_dict:
+            tm.log(pm.overall_progress, Visualization=output_dict["fig"])
 
         self.model.train()
 

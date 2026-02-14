@@ -3,6 +3,7 @@ from ..Basics import Conv2DBnLeakyReLU, FCLayers
 import torch.nn as nn
 import torch
 from .components import Block
+import matplotlib.pyplot as plt
 
 
 class SampleCNN(JimmyModel):
@@ -69,6 +70,32 @@ class SampleCNN(JimmyModel):
 
 
     def evalStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+        test_returns = self(data_dict)
+            
+        # Generate visualization
+        plt.close("all")
+        fig, axes = plt.subplots(2, 5, figsize=(12, 5))
+        axes = axes.flatten()
+        
+        # Show first 10 images with predictions
+        for i in range(min(10, data_dict['input'].shape[0])):
+            img = data_dict['input'][i].cpu().squeeze()
+            pred_label = torch.argmax(test_returns[1]['output'][i]).item()
+            true_label = data_dict['target'][i].item()
+            
+            axes[i].imshow(img, cmap='gray')
+            axes[i].axis('off')
+            color = 'green' if pred_label == true_label else 'red'
+            axes[i].set_title(f"Pred: {pred_label}\nTrue: {true_label}", color=color, fontsize=10)
+        
+        plt.tight_layout()
+        
+        test_returns[1]["fig"] = fig
+        return test_returns
+
+
+    def testStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
+        # Test step only computes metrics without visualization
         with torch.no_grad():
             output = self(data_dict['input']).detach()
             loss = self.ce_loss(output, data_dict['target']).item()
