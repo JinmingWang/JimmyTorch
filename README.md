@@ -19,43 +19,74 @@ The following files give a example of how to build a project with JimmyTorch:
 ### Quick Usage
 
 ```python
-from Datasets import JimmyDataset
+from JimmyTorch.Datasets import *
 
 class MyDataset(JimmyDataset):
-    def __init__(self, batch_size: int, shuffle: bool = False):
-        super().__init__(batch_size, drop_last=False, shuffle=shuffle)
+    def __init__(self, set_name: Literal['train', 'eval', 'test', 'debug', 'all'], batch_size: int, drop_last: bool = False, shuffle: bool = False, ANY_DATASET_SPECIFIC_ARGS):
+        # Must call super().__init__()
+        super().__init__(set_name, batch_size, drop_last, shuffle)
+
+        # slice data according to set_name
+        slices = {
+            'train': slice(0, -300),
+            'eval': slice(-300, -200),
+            'test': slice(-200, None),
+            'debug': slice(0, 100),
+            'all': slice(0, None)
+        }
+        slicing = slices[set_name]
         
-        # Load and preprocess all data to tensors
-        self.data = torch.randn(1000, 128).to(DEVICE)  # Example: 1000 samples
-        self.labels = torch.randint(0, 10, (1000,)).to(DEVICE)
-        self.n_samples = len(self.data)  # Must set n_samples
+        # Load data (expect dict)
+        dataset = torch.load("PATH_TO_DATA.pth")
+        # unpack dataset and assign to attributes
+        self.data_A = dataset['data_A'].to(DEVICE)[slicing]
+        self.data_B = dataset['data_B'].to(DEVICE)[slicing]
+        ... # other data types
+
+        # Must set n_samples
+        self.n_samples = len(self.data_A)
     
     def __getitem__(self, idx):
-        start = (idx - 1) * self.batch_size
+        start = idx * self.batch_size
         end = min(start + self.batch_size, self.n_samples)
         indices = self._indices[start:end]
+
+        batch_data_A = self.data_A[indices]
+        batch_data_B = self.data_B[indices]
+        ... # other data types
+
+        # Here do data-augmentation if necessary
+        # Also do other batch-level preprocessing if necessary
         
         return {
-            'data': self.data[indices],
-            'target': self.labels[indices]
+            'data_A': batch_data_A,
+            'data_B': batch_data_B,
+            ... # other data types
         }
 
 # Usage
-train_set = MyDataset(batch_size=32, shuffle=True)
-for batch_dict in train_set:
-    data = batch_dict['data']
-    target = batch_dict['target']
+train_set = MyDataset(set_name='train', batch_size=64, drop_last=True, shuffle=True)
+for batch_data in train_set:
+    ...
+```
+
+### Directory Structure For Specific Datasets
+```
+Datasets/
+├── MyDataset1.py   ---> Implementation of MyDataset1 class inheriting from JimmyDataset
+├── MyDataset2.py   ---> Implementation of MyDataset2 class inheriting from JimmyDataset
 ```
 
 ### Table of Contents
-
 | Path | Class | Function | Description |
 |------|-------|----------|-------------|
-|`Datasets/__init__.py`| - | - | Package initialization |
-| `Datasets/JimmyDataset.py` | `JimmyDataset` | - | Base dataset class combining Dataset + DataLoader functionality |
+| `Datasets/__init__.py` | - | - | Package initialization |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | `__init__(batch_size, drop_last, shuffle)` | Initialize dataset with batching parameters |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | `__getitem__(idx)` | Return batch dictionary for index idx (1-indexed) |
 | `Datasets/JimmyDataset.py` | `JimmyDataset` | `n_batches` | Property computing number of batches based on n_samples |
+| `Datasets/JimmyDataset.py` | `JimmyDataset` | `__iter__()` | Initialize iteration state for batch loading |
+| `Datasets/JimmyDataset.py` | `JimmyDataset` | `__next__()` | Return next batch of data, raises StopIteration at end |
+| `Datasets/JimmyDataset.py` | `JimmyDataset` | `__len__()` | Return total number of samples in the dataset |
 | `Datasets/DatasetUtils.py` | - | `DEVICE` | Global device variable (cuda/cpu) |
 | `Datasets/MultiThreadLoader.py` | `MultiThreadLoader` | `__init__(dataset, num_workers)` | Multi-threaded data loading for CPU-heavy preprocessing |
 | `Datasets/TrajectoryUtils.py` | - | `computeDistance(trajs: BatchTraj \| Traj)` | Compute total distance of trajectory by summing pair-wise distances |
@@ -69,13 +100,11 @@ for batch_dict in train_set:
 | `Datasets/TrajectoryUtils.py` | - | `computeJSD(dataset1, dataset2, num_bins)` | Compute Jensen-Shannon Divergence between trajectory distributions |
 | `Datasets/TrajectoryUtils.py` | - | `plotTraj(ax, trajs, traj_lengths, color)` | Plot trajectories on matplotlib axis |
 | `Datasets/SequenceUtils.py` | - | - | (TODO) Utility functions for sequential data |
-| `Datasets/MNISTDataset.py` | `MNISTSampleDataset` | - | Example dataset implementation for MNIST |
 
 ### Notes
 
 - **Preloading Philosophy**: Unlike PyTorch's DataLoader, `JimmyDataset` assumes all data is preprocessed into tensors and loaded to GPU during `__init__`. This eliminates multi-threaded loading overhead when data fits in memory.
 - **Dictionary Return**: `__getitem__` must return a dictionary. This unifies interfaces across different datasets and models.
-- **Index Convention**: `__getitem__(idx)` uses 1-indexed batches (idx=1 is first batch). Internal implementation handles 0-indexing conversion.
 - **Trajectory Types**: `Traj = FT32[Tensor, "L 2"]` (single trajectory), `BatchTraj = FT32[Tensor, "B L 2"]` (batch of trajectories).
 - **MultiThreadLoader**: Use only when preprocessing contains unavoidable CPU-heavy operations (e.g., file I/O, complex transformations).
 
@@ -86,27 +115,24 @@ for batch_dict in train_set:
 ### Quick Usage
 
 ```python
-from Models import JimmyModel
-import torch.nn as nn
+from JimmyTorch.Models import *
 
 class MyModel(JimmyModel):
-    def __init__(self):
-        super().__init__(
-            optimizer_cls=torch.optim.AdamW,
-            optimizer_args={"lr": 1e-4, "weight_decay": 0.01},
-            mixed_precision=True,
-            compile_model=False,
-            clip_grad=1.0
-        )
+    def __init__(self, MODEL_SPECIFIC_ARGS, **jimmy_model_kwargs):
+        # Must call this
+        super().__init__(**jimmy_model_kwargs)
         
         # Define loss names for logging
-        self.train_loss_names = ["Train/Loss", "Train/Acc"]
-        self.eval_loss_names = ["Eval/Loss", "Eval/Acc"]
+        # There must be a main loss (e.g., "Train/Main", "Eval/Main") that controls the learning rate scheduler and checkpointing. Other losses are optional and only for logging/visualization.
+        self.train_loss_names = ["Train/Main", "Train/MAE", "Train/RMSE"]
+        self.eval_loss_names = ["Eval/Main", "Eval/MAE", "Eval/RMSE", "Eval/Acc", "Eval/F1"]
         
         # Define model architecture
         self.encoder = nn.Sequential(...)
         self.decoder = nn.Sequential(...)
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.mse_func = nn.MSELoss()
+        self.mae_func = nn.L1Loss()
+        ... # other loss functions or components
     
     def forward(self, x):
         return self.decoder(self.encoder(x))
@@ -114,26 +140,55 @@ class MyModel(JimmyModel):
     def trainStep(self, data_dict):
         with getAutoCast(data_dict['data'], self.mixed_precision):
             output = self(data_dict['data'])
-            loss = self.loss_fn(output, data_dict['target'])
-            acc = (output.argmax(dim=-1) == data_dict['target']).float().mean()
+            mse_loss = self.mse_func(output, data_dict['target'])
+            mae_loss = self.mae_func(output, data_dict['target'])
+            rmse_loss = self.rmse_func(output, data_dict['target'])
         
         self.backwardOptimize(loss)
         
-        return {"Train/Loss": loss.item(), "Train/Acc": acc.item()}, \
+        return {"Train/Main": loss.item(), "Train/MAE": mae.item(), "Train/RMSE": rmse.item()}, \
                {"output": output.detach()}
-    
-    def evalStep(self, data_dict):
+
+
+    def testStep(self, data_dict):
         with torch.no_grad():
             output = self(data_dict['data'])
             loss = self.loss_fn(output, data_dict['target']).item()
-            acc = (output.argmax(dim=-1) == data_dict['target']).float().mean().item()
+            mae = nn.L1Loss()(output, data_dict['target']).item()
         
-        return {"Eval/Loss": loss, "Eval/Acc": acc}, \
+        # train & test returns must include all losses defined in train_loss_names and eval_loss_names
+        return {"Eval/Main": loss, "Eval/MAE": mae, ...}, \
                {"output": output.detach()}
+    
+    def evalStep(self, data_dict):
+        # evalStep must call testStep and implement any additional evaluation-specific logic
+        test_returns = self.testStep(data_dict)
+
+        # Here do any additional evaluation-specific things, and draw figures
+        fig = ...
+
+        test_returns[1]["fig"] = fig
+        return test_returns
+        
 
 # Usage
-model = MyModel().to(DEVICE)
+model = MyModel(...).to(DEVICE)
 model.initialize()  # Create optimizer
+```
+
+### Directory Structure For Specific Models
+```
+Models/
+├── __init__.py   ---> Package initialization
+├── MethodName1/
+│   ├── __init__.py   ---> Method implementation template: model package initialization
+│   ├── ModelVariant1.py   ---> Implementation of ModelVariant1 class inheriting from JimmyModel
+│   ├── ModelVariant2.py   ---> Implementation of ModelVariant2 class inheriting from JimmyModel
+|   ├── ...
+│   └── components.py   ---> Building block components specific to the method
+├── MethodName2/...
+├── MethodName3/...
+└── ...
 ```
 
 ### Table of Contents
@@ -181,8 +236,8 @@ model.initialize()  # Create optimizer
 
 ### Notes
 
-- **Loss Names**: `train_loss_names` and `eval_loss_names` must be defined. They control what metrics are logged and visualized.
-- **Return Format**: `trainStep` and `evalStep` must return `(loss_dict, output_dict)`. Keys in `loss_dict` must match the declared loss names.
+- **Loss Names**: `train_loss_names` and `eval_loss_names` must be defined and they must includ a main loss.
+- **Return Format**: `trainStep` and `testStep` must return `(loss_dict, output_dict)`. Keys in `loss_dict` must match the declared loss names, `evalStep` also returns figures in `output_dict` for visualization.
 - **Mixed Precision**: Handles gradient scaling automatically. Use `getAutoCast` context in forward pass.
 - **Gradient Clipping**: Set `clip_grad > 0` to enable. Applied after unscaling gradients in mixed precision.
 - **Model Compilation**: `compile_model=True` uses `torch.compile()` for optimization (PyTorch 2.0+).
@@ -195,57 +250,18 @@ model.initialize()  # Create optimizer
 ## 3. Training and Experiment
 
 ### Quick Usage
+You shoudl refer to `JimmyExperiment.py` and `JimmyTrainer.py` for example implementations. Each project that uses JimmyTorch should implement its own `Experiment` and `Trainer` classes that should look very similar to the ones in `JimmyExperiment.py` and `JimmyTrainer.py`.
 
-```python
-from JimmyExperiment import JimmyExperiment
-from DynamicConfig import DynamicConfig
-
-# Define experiment configuration
-exp = JimmyExperiment(comments="Baseline experiment with AdamW")
-
-# Configure dataset
-exp.dataset_cfg = DynamicConfig(
-    MyDataset,
-    batch_size=64,
-    shuffle=True
-)
-
-# Configure model
-exp.model_cfg = DynamicConfig(
-    MyModel,
-    optimizer_cls=torch.optim.AdamW,
-    optimizer_args={"lr": 1e-4},
-    mixed_precision=True
-)
-
-# Configure learning rate scheduler
-exp.lr_scheduler_cfg = DynamicConfig(
-    JimmyLRScheduler,
-    peak_lr=2e-4,
-    min_lr=1e-7,
-    warmup_count=10,
-    patience=10,
-    decay_rate=0.5
-)
-
-# Set training constants
-exp.constants = {
-    "n_epochs": 100,
-    "moving_avg": 100,
-    "eval_interval": 5,
-    "early_stop_lr": 1e-6,  # Optional: early stopping threshold
-    "save_dir": None,  # Optional: custom checkpoint directory
-    "log_dir": None  # Optional: custom log directory
-}
-
-# Start training
-trainer = exp.start(checkpoint=None)
-
-# Optional: Test separately after training
-exp.dataset_cfg.set_name = "test"
-test_set = exp.dataset_cfg.build()
-test_report = exp.test(trainer.model, test_set)
-test_report.to_csv("test_results.csv")
+### Directory Structure For Training and Experiment
+```
+TrainEvalTest/
+├── Experiment.py   ---> Implementation of Experiment class managing configs, training loop, and testing
+├── Trainer1.py   ---> Impl of Trainer1 class for specific training paradigm
+├── Trainer2.py   ---> Impl of Trainer2 class for specific training paradigm
+└── ...
+./main_Model1.py   ---> Entry point script for training/testing Model1 with specific dataset and experiment configuration
+./main_Model2.py
+...
 ```
 
 ### Table of Contents
@@ -286,7 +302,7 @@ test_report.to_csv("test_results.csv")
 - **Runtime Parameter Hot-Reload**: Training creates `runtime_param_buffer.yaml` in log directory. Edit this file during training to adjust learning rate on-the-fly (changes apply on next epoch).
 - **Trainer Type Selection**: Set `experiment.trainer_type` to use custom trainer classes for different training paradigms (e.g., iteration-based, GAN training).
 - **Early Stopping**: Set `early_stop_lr` in constants to automatically stop training when learning rate drops below threshold.
-- **JimmyLRScheduler Phases**: (1) Warmup with sinusoidal ramp to peak_lr, (2) Cosine annealing with high-frequency modulation, (3) Exponential decay on plateau detection.
+- **JimmyLRScheduler Phases**: *** DO NOT USE *** (1) Warmup with sinusoidal ramp to peak_lr, (2) Cosine annealing with high-frequency modulation, (3) Exponential decay on plateau detection.
 - **Plateau Detection**: LR scheduler tracks moving average of metric over `window_size` epochs. If no improvement for `patience` epochs, triggers decay.
 - **Automatic Directory Structure**: Experiment creates `Runs/{DatasetName}/{ModelName}/{dir_name}/` for logs, checkpoints, and configs. Custom paths via `save_dir` and `log_dir` in constants.
 - **Checkpoint Strategy**: Saves `best.pth` (lowest eval loss) and `last.pth` (most recent) every `eval_interval` epochs.
@@ -302,7 +318,9 @@ test_report.to_csv("test_results.csv")
 
 2. **Implement Model**: Inherit from `JimmyModel`, define architecture and `train_loss_names`/`eval_loss_names` in `__init__`, implement `forward`, `trainStep`, `evalStep`.
 
-3. **Configure Experiment**: Create `JimmyExperiment` instance, configure `dataset_cfg`, `model_cfg`, `lr_scheduler_cfg` using `DynamicConfig`, set training constants (`n_epochs`, `eval_interval`, etc.).
+3. **Configure Experiment**: Create `JimmyExperiment` instance, configure default `dataset_cfg`, `model_cfg`, `lr_scheduler_cfg` using `DynamicConfig`, set default training constants (`n_epochs`, `eval_interval`, etc.).
+
+4. *** Complete Entry Script ***: In `main_Model.py`, implement train() and test() functions. Define dataset/model classes, create experiment instance, modify configs. Optionally load checkpoints. Call `experiment.start()` to train and `experiment.test()` to evaluate. In `if __name__ == "__main__":` block, call train() or test().
 
 4. **Launch Training**: Call `experiment.start(checkpoint=None)` to build components, create directories, and execute training loop. Returns trainer object for further use.
 
@@ -328,54 +346,3 @@ test_report.to_csv("test_results.csv")
 - **Configuration as Code**: Use `DynamicConfig` to version and modify hyperparameters programmatically.
 - **Reproducibility**: Experiment logs save model architecture, hyperparameters, and comments automatically.
 - **Extensibility**: Core classes (`JimmyDataset`, `JimmyModel`, `JimmyTrainer`, `JimmyExperiment`) are templates. Override methods for task-specific logic.
-
----
-
-## Quick Start Example
-
-```python
-# 1. Dataset
-from Datasets import JimmyDataset
-class MyData(JimmyDataset):
-    def __init__(self, batch_size):
-        super().__init__(batch_size)
-        self.X = torch.randn(1000, 10).to(DEVICE)
-        self.y = torch.randint(0, 2, (1000,)).to(DEVICE)
-        self.n_samples = 1000
-    def __getitem__(self, idx):
-        start, end = (idx-1)*self.batch_size, idx*self.batch_size
-        return {'data': self.X[start:end], 'target': self.y[start:end]}
-
-# 2. Model
-from Models import JimmyModel
-import torch.nn as nn
-class MyModel(JimmyModel):
-    def __init__(self):
-        super().__init__(optimizer_cls=torch.optim.Adam, optimizer_args={"lr": 1e-3})
-        self.train_loss_names = ["Train/Loss"]
-        self.eval_loss_names = ["Eval/Loss"]
-        self.net = nn.Linear(10, 2)
-        self.loss_fn = nn.CrossEntropyLoss()
-    def forward(self, x): return self.net(x)
-    def trainStep(self, d):
-        out = self(d['data'])
-        loss = self.loss_fn(out, d['target'])
-        self.backwardOptimize(loss)
-        return {"Train/Loss": loss.item()}, {"output": out.detach()}
-    def evalStep(self, d):
-        with torch.no_grad():
-            out = self(d['data'])
-            loss = self.loss_fn(out, d['target'])
-        return {"Eval/Loss": loss.item()}, {"output": out}
-
-# 3. Experiment
-from JimmyExperiment import JimmyExperiment
-from DynamicConfig import DynamicConfig
-exp = JimmyExperiment("Quick start test")
-exp.dataset_cfg = DynamicConfig(MyData, batch_size=32)
-exp.model_cfg = DynamicConfig(MyModel)
-exp.constants = {"n_epochs": 10, "moving_avg": 10, "eval_interval": 2}
-trainer = exp.start()
-```
-
-This example demonstrates the complete pipeline in ~40 lines of code.
