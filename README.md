@@ -70,11 +70,12 @@ for batch_data in train_set:
     ...
 ```
 
-### Directory Structure For Specific Datasets
+### Directory Structure For Specific Project
 ```
 Datasets/
 ├── MyDataset1.py   ---> Implementation of MyDataset1 class inheriting from JimmyDataset
 ├── MyDataset2.py   ---> Implementation of MyDataset2 class inheriting from JimmyDataset
+└── ...
 ```
 
 ### Table of Contents
@@ -176,7 +177,7 @@ model = MyModel(...).to(DEVICE)
 model.initialize()  # Create optimizer
 ```
 
-### Directory Structure For Specific Models
+### Directory Structure For Specific Project
 ```
 Models/
 ├── __init__.py   ---> Package initialization
@@ -252,7 +253,7 @@ Models/
 ### Quick Usage
 You shoudl refer to `JimmyExperiment.py` and `JimmyTrainer.py` for example implementations. Each project that uses JimmyTorch should implement its own `Experiment` and `Trainer` classes that should look very similar to the ones in `JimmyExperiment.py` and `JimmyTrainer.py`.
 
-### Directory Structure For Training and Experiment
+### Directory Structure For Specific Project
 ```
 TrainEvalTest/
 ├── Experiment.py   ---> Implementation of Experiment class managing configs, training loop, and testing
@@ -335,6 +336,20 @@ TrainEvalTest/
 9. **Handle Trajectories**: For GPS trajectory tasks, use utilities from `Datasets/TrajectoryUtils.py` for preprocessing (interpolation, rotation, normalization) and evaluation (geometric distance, JSD).
 
 10. **Leverage Advanced Features**: Enable mixed precision training (`mixed_precision=True`), gradient clipping (`clip_grad > 0`), model compilation (`compile_model=True`), and adaptive LR scheduling (`JimmyLRScheduler`) for efficient training.
+
+---
+
+## Overall Structure
+```
+Datasets/...   ---> All dataset impls
+Models/...   ---> All model impls
+Reports/...   ---> Figures / Tables / Reports generator code and outputs
+Runs/...   ---> Experiment logs, checkpoints, and configs (auto-generated during training)
+JimmyTorch/...   ---> JimmyTorch sub-modules
+Temp/...   ---> Temporary files (testing scripts, temp visualizations, etc.)
+TrainEvalTest/...   ---> Trainer and Experiment impls
+main_*.py   ---> Entry scripts for training/testing specific model-dataset combinations
+```
 
 ---
 

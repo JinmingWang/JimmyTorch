@@ -116,10 +116,10 @@ class JimmyTrainer:
             if epoch % self.eval_interval == 0:
                 eval_losses = self.evaluate(self.eval_set, pm=pm, tm=tm)
 
-                # 更新tensorboard
+                # Update tensorboard
                 tm.log(pm.overall_progress, **eval_losses)
 
-                # 根据eval_losses["MAE"]来判断最好的模型
+                # Determine the best model based on eval_losses["Eval/Main"]
                 eval_loss = eval_losses["Eval/Main"]
                 if eval_loss < best_loss:
                     best_loss = eval_loss
@@ -139,13 +139,24 @@ class JimmyTrainer:
                  compute_avg: bool=True,
                  pm: ProgressManager = None,
                  tm: TensorBoardManager = None):
+        """
+        Evaluate the model on a given dataset.
+        
+        :param dataset: The dataset to evaluate on.
+        :param compute_avg: Whether to compute and return the average loss over the dataset. If False, returns the loss for each batch.
+        :param pm: An optional ProgressManager to update during evaluation.
+        :param tm: An optional TensorBoardManager to log visualizations during evaluation.
+        :return: A dictionary of average losses if compute_avg is True, otherwise a dictionary of loss arrays for each batch.
+        """
         n_batches = dataset.n_batches
+        # For each type of loss, store a tensor of shape (n_batches,)
         eval_losses = {name: torch.zeros(n_batches).to(DEVICE) for name in self.model.eval_loss_names}
         self.model.eval()
 
+        # Iterate through the dataset and compute losses
         for i, data_dict in enumerate(dataset):
             loss_dict, output_dict = self.model.evalStep(data_dict)
-
+            # Store each loss in the corresponding tensor
             for name in self.model.eval_loss_names:
                 eval_losses[name][i] = loss_dict[name]
 
@@ -155,7 +166,7 @@ class JimmyTrainer:
 
         self.model.train()
 
-        if compute_avg:
+        if compute_avg:     # if compute_avg, then average each loss over all batches
             return {name: torch.mean(eval_losses[name]).item() for name in self.model.eval_loss_names}
 
         return {name: eval_losses[name].cpu().numpy() for name in self.model.eval_loss_names}

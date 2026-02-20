@@ -37,13 +37,11 @@ class JimmyExperiment:
                                         shuffle=True)
 
         # The default hyperparameters for the experiment.
-        self.lr_scheduler_cfg = DynamicConfig(JimmyLRScheduler,
-                                              peak_lr=2e-4,
-                                              min_lr=1e-7,
-                                              warmup_count=10,
-                                              window_size=10,
-                                              patience=10,
-                                              decay_rate=0.5)
+        self.lr_scheduler_cfg = DynamicConfig(torch.optim.lr_scheduler.ReduceLROnPlateau,
+                                            mode='min',
+                                            factor=0.5,
+                                            threshold=1e-7,
+                                            patience=10)
 
         # Other constants for the experiment.
         self.constants = {
