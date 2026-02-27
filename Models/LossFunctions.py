@@ -51,22 +51,27 @@ class SequentialLossWithLength(nn.Module):
 
     def forward(self, pred: Tensor, target: Tensor, lengths: Tensor) -> Tensor:
         """
-        :param pred: the predicted output of shape (B, L, D)
-        :param target: the target output of shape (B, L, D)
+        :param pred: the predicted output of shape (B, L, D), or (B, D, L) for classification
+        :param target: the target output of shape (B, L, D), or (B, L) for classification
         :param lengths: the lengths of each data sample of shape (B, )
         :return: the masked loss
         """
 
-        # Create a mask based on the lengths
-        mask = torch.arange(pred.size(1), device=pred.device).expand(len(lengths), pred.size(1)) < lengths.unsqueeze(1)
+        # Create a mask based on the lengths, (B, L)
+        B = pred.size(0)
+        mask = torch.arange(target.size(1), device=pred.device).expand(len(lengths), target.size(1)) < lengths.unsqueeze(1)
+        if target.dim() == 3:
+            pred_mask = mask.unsqueeze(-1).repeat(1, 1, pred.size(2))  # (B, L, D)
+            target_mask = pred_mask     # (B, L, D)
+            loss = self.base_loss(pred[pred_mask], target[target_mask])
+        else:
+            # Classification case
+            filtered_pred = torch.cat([pred[i, :, :lengths[i]] for i in range(B)], dim=1).unsqueeze(0)   # (1, D, sum(lengths))
+            filtered_target = torch.cat([target[i, :lengths[i]] for i in range(B)], dim=0).unsqueeze(0)    # (1, sum(lengths))
+            loss = self.base_loss(filtered_pred, filtered_target)
 
-        # Apply the mask to the predictions and targets
-        masked_pred = pred * mask.unsqueeze(-1)
-        masked_target = target * mask.unsqueeze(-1)
 
         # Calculate the loss using the base loss function
-        loss = self.base_loss(masked_pred, masked_target)
-
         return loss
 
 

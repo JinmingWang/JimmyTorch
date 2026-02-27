@@ -108,7 +108,7 @@ class JimmyModel(nn.Module):
         """
         Test step for pure metric computation without visualization.
         By default, calls evalStep. Override for different behavior.
-        
+
         Note: testStep should only compute metrics, while evalStep may also generate
         visualizations (figures) which are logged to TensorBoard during training.
         """
@@ -149,6 +149,25 @@ class JimmyModel(nn.Module):
                 print(f"Missing parameter '{param_name}' in model '{self.__class__.__name__}'.")
 
 
-    def getCompCost(self, *args, **kwargs):
+    def getCompCost(self, *args, exit_after_print: bool=True, **kwargs):
         from calflops import calculate_flops
+        from .Functional import ReplaceMultiHeadAttention, ReplaceTransformerEncoderLayer
+
+        # Replace all torch.nn.MultiheadAttention with ReplaceMultiHeadAttention
+        for name, module in self.named_modules():
+            if isinstance(module, torch.nn.TransformerEncoderLayer):
+                parent_module = self
+                name_parts = name.split('.')
+                for part in name_parts[:-1]:
+                    parent_module = getattr(parent_module, part)
+                setattr(parent_module, name_parts[-1], ReplaceTransformerEncoderLayer(module))
+            if isinstance(module, torch.nn.MultiheadAttention):
+                parent_module = self
+                name_parts = name.split('.')
+                for part in name_parts[:-1]:
+                    parent_module = getattr(parent_module, part)
+                setattr(parent_module, name_parts[-1], ReplaceMultiHeadAttention(module))
+
         calculate_flops(self, args=args, kwargs=kwargs)
+        if exit_after_print:
+            exit(0)

@@ -92,7 +92,9 @@ class ProgressManager:
         table.add_column("Elapsed", width=10)
         table.add_column("Remain", width=10)
         for k in self.custom_fields:
-            table.add_column(k, width=12)
+            # Convert "xxx/yyy/zzz" format to multi-line "xxx\nyyy\nzzz"
+            header = k.replace("/", "\n")
+            table.add_column(header, width=12)
 
         # Calculate time details
         elapsed_time_total = time.time() - self.start_time
