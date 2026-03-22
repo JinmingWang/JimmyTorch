@@ -157,6 +157,21 @@ class Rearrange(nn.Module):
         return self.operations(x).contiguous()
 
 
+class ResWrapper(nn.Module):
+    def __init__(self, module: nn.Module):
+        """
+        A wrapper that makes the output of the module added to the input, which is a common pattern in deep learning.
+        The module must ensure that the output has the same shape as the input.
+        :param module: The module to wrap.
+        """
+        super(ResWrapper, self).__init__()
+        self.module = module
+
+    def forward(self, x, *args, **kwargs):
+        return x + self.module(x, *args, **kwargs)
+
+
+
 def makeItResidual(forward_func):
     """
     Make a forward function residual.
