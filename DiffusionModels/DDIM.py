@@ -1,13 +1,19 @@
 # encoding: utf-8
 
 import torch
-from typing import *
+from typing import Callable, Literal, Tuple, Optional, Union
 from tqdm import tqdm
 from math import log
 
 Tensor = torch.Tensor
 
 class DDIM:
+    """
+    Denoising Diffusion Implicit Models (DDIM) implementation.
+
+    DDIM provides a deterministic sampling process that can skip steps,
+    allowing for faster generation compared to DDPM.
+    """
 
     def __init__(self,
                  min_beta: float = 0.0001,
@@ -15,197 +21,262 @@ class DDIM:
                  max_diffusion_step: int = 100,
                  device: str = 'cuda',
                  scale_mode: Literal["linear", "quadratic", "log"] = "linear",
-                 skip_step=1):
+                 skip_step: int = 1):
         """
         Initializes the DDIM model with the given parameters.
 
-        :param sample_shape: Shape of the samples to be generated.
         :param min_beta: Minimum beta value for the diffusion process.
         :param max_beta: Maximum beta value for the diffusion process.
         :param max_diffusion_step: Total number of diffusion steps.
         :param device: Device to perform computations on ('cuda' or 'cpu').
-        :param scale_mode: Mode for scaling beta values.
-        :param skip_step: Number of steps to skip during denoising.
+        :param scale_mode: Mode for scaling beta values ('linear', 'quadratic', or 'log').
+        :param skip_step: Number of steps to skip during denoising (1 means no skipping).
         """
+        # Compute beta schedule
         if scale_mode == "quadratic":
-            betas = torch.linspace(min_beta ** 0.5, max_beta ** 0.5, max_diffusion_step).to(device) ** 2
+            betas = torch.linspace(min_beta ** 0.5, max_beta ** 0.5, max_diffusion_step, device=device) ** 2
         elif scale_mode == "log":
-            betas = torch.exp(torch.linspace(log(min_beta), log(max_beta), max_diffusion_step).to(device))
+            betas = torch.exp(torch.linspace(log(min_beta), log(max_beta), max_diffusion_step, device=device))
         else:
-            betas = torch.linspace(min_beta, max_beta, max_diffusion_step).to(device)
+            betas = torch.linspace(min_beta, max_beta, max_diffusion_step, device=device)
 
         self.skip_step = skip_step
         self.device = device
-
-        alphas = 1 - betas
-        alpha_bars = torch.empty_like(alphas)
-        product = 1
-        for i, alpha in enumerate(alphas):
-            product *= alpha
-            alpha_bars[i] = product
         self.T = max_diffusion_step
 
-        # Shapes: (T,)
-        self.beta = betas.view(-1, 1)
-        self.alpha = alphas.view(-1, 1)
-        self.αbar = alpha_bars.view(-1, 1)
-        self.sqrt_αbar = torch.sqrt(alpha_bars).view(-1, 1)
-        self.sqrt_1_m_αbar = torch.sqrt(1 - alpha_bars).view(-1, 1)
+        # Compute alphas and cumulative products
+        alphas = 1.0 - betas
+        alpha_bars = torch.cumprod(alphas, dim=0)
 
+        # Store precomputed values (T, 1) for broadcasting
+        self.betas = betas.view(-1, 1)
+        self.alphas = alphas.view(-1, 1)
+        self.alpha_bars = alpha_bars.view(-1, 1)
+        self.sqrt_alpha_bars = torch.sqrt(alpha_bars).view(-1, 1)
+        self.sqrt_1m_alpha_bars = torch.sqrt(1.0 - alpha_bars).view(-1, 1)
 
-    def diffuseStep(self, x_t: Tensor, t: int, epsilon_t_to_tp1: Tensor) -> Tensor:
-        return torch.sqrt(self.alpha[t]) * x_t + torch.sqrt(1 - self.alpha[t]) * epsilon_t_to_tp1
+    def diffuse(self, x_0: Tensor, t: Union[int, Tensor], noise: Optional[Tensor] = None) -> Tensor:
+        """
+        Forward diffusion: Add noise to x_0 to get x_t.
 
+        Formula: x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * noise
 
-    def diffuse(self, x_0: Tensor, t: int, epsilon: Tensor) -> Tensor:
+        :param x_0: Original sample at timestep 0, shape (B, ...)
+        :param t: Timestep(s), either int or Tensor of shape (B,)
+        :param noise: Gaussian noise, same shape as x_0. If None, will be sampled.
+        :return: Noisy sample x_t, same shape as x_0
+        """
+        if noise is None:
+            noise = torch.randn_like(x_0)
+
         original_shape = x_0.shape
-        x_t = self.sqrt_αbar[t] * x_0.flatten(1) + self.sqrt_1_m_αbar[t] * epsilon.flatten(1)
-        return x_t.view(*original_shape)
+        x_0_flat = x_0.flatten(1)
+        noise_flat = noise.flatten(1)
+
+        # Handle both int and tensor timesteps
+        sqrt_alpha_bar_t = self.sqrt_alpha_bars[t]
+        sqrt_1m_alpha_bar_t = self.sqrt_1m_alpha_bars[t]
+
+        x_t_flat = sqrt_alpha_bar_t * x_0_flat + sqrt_1m_alpha_bar_t * noise_flat
+        return x_t_flat.view(original_shape)
 
 
     def denoiseStep(self,
-                    x0_pred: Tensor,
-                    epsilon_pred: Tensor,
-                    v_pred: Tensor,
-                    x_tp1: Tensor,
-                    t: Tensor,
-                    smaller_t: Tensor,
-                    need_x0: bool = False) -> Tensor:
+                    x_t: Tensor,
+                    t: Union[int, Tensor],
+                    t_prev: Union[int, Tensor],
+                    x0_pred: Optional[Tensor] = None,
+                    epsilon_pred: Optional[Tensor] = None,
+                    v_pred: Optional[Tensor] = None,
+                    need_x0: bool = False) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         """
-        :param x0_pred: Predicted x0, if not predicting x0, set to None
-        :param epsilon_pred: Predicted epsilon, if not predicting epsilon, set to None
-        :param v_pred: Predicted velocity, if not predicting velocity, set to None
-        :param x_tp1: The sample at time step t+1, e.g., x_60
-        :param t: The current time step, e.g., 59
-        :param smaller_t: The next time step, e.g., 58. Note that next_t is the next time stamp during denoising, so smaller
-        :param need_x0: If True, also return x0
-        :return: 
-        """
-        original_shape = x_tp1.shape
+        Single DDIM denoising step from timestep t to t_prev.
 
+        Exactly one of x0_pred, epsilon_pred, or v_pred must be provided.
+
+        :param x_t: Current noisy sample at timestep t, shape (B, ...)
+        :param t: Current timestep, either int or Tensor of shape (B,)
+        :param t_prev: Previous (smaller) timestep to denoise to
+        :param x0_pred: Predicted x_0, if predicting x0 directly
+        :param epsilon_pred: Predicted noise, if predicting noise
+        :param v_pred: Predicted velocity, if predicting velocity
+        :param need_x0: If True, also return the predicted x_0
+        :return: x_{t_prev} or (x_{t_prev}, x_0_pred) if need_x0=True
+        """
+        original_shape = x_t.shape
+        x_t_flat = x_t.flatten(1)
+
+        # Get precomputed values for timestep t
+        sqrt_alpha_bar_t = self.sqrt_alpha_bars[t]
+        sqrt_1m_alpha_bar_t = self.sqrt_1m_alpha_bars[t]
+
+        # Convert prediction to x0 and epsilon
         if v_pred is not None:
-            # Flatten for computation
-            v_pred = v_pred.flatten(1)
-            sqrt_ab = self.sqrt_αbar[t]  # scalar
-            sqrt_1mab = self.sqrt_1_m_αbar[t]  # scalar
-
-            x0_pred = sqrt_ab * x_tp1.flatten(1) - sqrt_1mab * v_pred
-            epsilon_pred = ((v_pred + sqrt_1mab * x0_pred) / sqrt_ab).flatten(1)
+            # v-prediction: v = sqrt(alpha_bar_t) * epsilon - sqrt(1 - alpha_bar_t) * x_0
+            # Solve for x_0 and epsilon:
+            # x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * epsilon
+            # v = sqrt(alpha_bar_t) * epsilon - sqrt(1 - alpha_bar_t) * x_0
+            v_flat = v_pred.flatten(1)
+            x0_pred_flat = sqrt_alpha_bar_t * x_t_flat - sqrt_1m_alpha_bar_t * v_flat
+            epsilon_pred_flat = sqrt_1m_alpha_bar_t * x_t_flat + sqrt_alpha_bar_t * v_flat
         elif epsilon_pred is not None:
-            x0_pred = (x_tp1.flatten(1) - self.sqrt_1_m_αbar[t] * epsilon_pred.flatten(1)) / self.sqrt_αbar[t]
-            epsilon_pred = epsilon_pred.flatten(1)
+            # Noise prediction: solve for x_0 from x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * epsilon
+            epsilon_pred_flat = epsilon_pred.flatten(1)
+            x0_pred_flat = (x_t_flat - sqrt_1m_alpha_bar_t * epsilon_pred_flat) / sqrt_alpha_bar_t
         elif x0_pred is not None:
-            x0_pred = x0_pred.flatten(1)
-            epsilon_pred = (self.extractNoise(x0_pred, x_tp1, t)).flatten(1)
+            # Direct x_0 prediction: solve for epsilon
+            x0_pred_flat = x0_pred.flatten(1)
+            epsilon_pred_flat = (x_t_flat - sqrt_alpha_bar_t * x0_pred_flat) / sqrt_1m_alpha_bar_t
+        else:
+            raise ValueError("Must provide exactly one of x0_pred, epsilon_pred, or v_pred")
 
-        # if t <= self.skip_step, then mask is 1, which means return pred_x0
-        # otherwise, mask is 0, which means return diffuse
-        mask = (t == 0).to(x0_pred.dtype).view(-1, 1)
-        output = (x0_pred * mask + self.diffuse(x0_pred, smaller_t, epsilon_pred) * (1 - mask)).view(*original_shape)
+        # DDIM deterministic sampling
+        # If t_prev == 0, return x_0 directly
+        # Otherwise, compute x_{t_prev} = sqrt(alpha_bar_{t_prev}) * x_0 + sqrt(1 - alpha_bar_{t_prev}) * epsilon
+
+        # Create mask for final step (when we should return x_0 directly)
+        if isinstance(t_prev, int):
+            is_final = (t_prev == 0)
+        else:
+            is_final = (t_prev == 0).to(x0_pred_flat.dtype).view(-1, 1)
+
+        if isinstance(is_final, bool):
+            if is_final:
+                x_prev_flat = x0_pred_flat
+            else:
+                sqrt_alpha_bar_prev = self.sqrt_alpha_bars[t_prev]
+                sqrt_1m_alpha_bar_prev = self.sqrt_1m_alpha_bars[t_prev]
+                x_prev_flat = sqrt_alpha_bar_prev * x0_pred_flat + sqrt_1m_alpha_bar_prev * epsilon_pred_flat
+        else:
+            sqrt_alpha_bar_prev = self.sqrt_alpha_bars[t_prev]
+            sqrt_1m_alpha_bar_prev = self.sqrt_1m_alpha_bars[t_prev]
+            x_prev_noised = sqrt_alpha_bar_prev * x0_pred_flat + sqrt_1m_alpha_bar_prev * epsilon_pred_flat
+            x_prev_flat = is_final * x0_pred_flat + (1 - is_final) * x_prev_noised
+
+        x_prev = x_prev_flat.view(original_shape)
 
         if need_x0:
-            return output, x0_pred.view(*original_shape)
-        return output
+            return x_prev, x0_pred_flat.view(original_shape)
+        return x_prev
 
 
     @torch.no_grad()
     def denoise(self,
                 x_T: Tensor,
-                pred_func: Callable[[Tensor, Tensor, Any], Tuple[Tensor, Tensor, Tensor]],
+                pred_func: Callable[[Tensor, Tensor], Tuple[Optional[Tensor], Optional[Tensor], Optional[Tensor]]],
                 verbose: bool = False,
                 **pred_func_args) -> Tensor:
         """
-        Denoises a sample from the final time step T to the initial time step 0.
+        Denoises a sample from the final timestep T to timestep 0.
 
-        :param x_T: Sample at the final time step T.
-        :param pred_func: Function to predict x_0 and noise.
-        :param verbose: Whether to display a progress bar.
-        :param pred_func_args: Additional arguments for the prediction function.
-        :return: The denoised sample at time step 0.
+        :param x_T: Noisy sample at timestep T, shape (B, ...)
+        :param pred_func: Prediction function that takes (x_t, t) and returns (x0_pred, epsilon_pred, v_pred).
+                         Should return exactly one non-None prediction.
+        :param verbose: Whether to display a progress bar
+        :param pred_func_args: Additional arguments to pass to pred_func
+        :return: Denoised sample at timestep 0
         """
         x_t = x_T.clone()
-        all_t = torch.arange(self.T, dtype=torch.long, device=self.device).repeat(x_T.shape[0], 1)  # (B, T)
+        batch_size = x_T.shape[0]
 
-        # [T, T-s, T-2s, ..., k], k >= 0
-        t_schedule = list(range(self.T - 1, -1, -self.skip_step))
-        if t_schedule[-1] != 0:
-            t_schedule.append(0)
-        if t_schedule[-2] != 1:
-            t_schedule.insert(-1, 1)
-        # [T, T-s, T-2s, ..., 1, 0]
+        # Create timestep schedule with skip_step
+        timesteps = list(range(self.T - 1, -1, -self.skip_step))
+        if timesteps[-1] != 0:
+            timesteps.append(0)
 
-        # pbar = tqdm(t_schedule[:-1]) if verbose else t_schedule[:-1]
-        pbar = tqdm(t_schedule) if verbose else t_schedule
-        for ti, t in enumerate(pbar):
-            x0_pred, epsilon_pred, v_pred = pred_func(x_t, all_t[:, t], **pred_func_args)
-            t_next = 0 if ti + 1 == len(t_schedule) else t_schedule[ti + 1]
-            # t_next is smaller than t
-            # all_t[:, t_next] is smaller than all_t[:, t]
-            x_t = self.denoiseStep(x0_pred, epsilon_pred, v_pred, x_t, all_t[:, t], all_t[:, t_next])
+        iterator = tqdm(timesteps, desc="DDIM sampling") if verbose else timesteps
+
+        for i, t in enumerate(iterator):
+            # Create timestep tensor for batch
+            t_tensor = torch.full((batch_size,), t, dtype=torch.long, device=self.device)
+
+            # Get prediction from model
+            x0_pred, epsilon_pred, v_pred = pred_func(x_t, t_tensor, **pred_func_args)
+
+            # Determine next timestep
+            t_prev = timesteps[i + 1] if i + 1 < len(timesteps) else 0
+            t_prev_tensor = torch.full((batch_size,), t_prev, dtype=torch.long, device=self.device)
+
+            # Denoise one step
+            x_t = self.denoiseStep(x_t, t_tensor, t_prev_tensor, x0_pred, epsilon_pred, v_pred)
 
         return x_t
 
 
-    def combineNoise(self, eps_0_to_t, eps_t_to_tp1, t):
+    def extractNoise(self, x_0: Tensor, x_t: Tensor, t: Union[int, Tensor]) -> Tensor:
         """
+        Extract noise from x_t given x_0.
 
-        :param eps_0_to_t: Combined noise,  (B, 2, L)
-        :param eps_t_to_tp1: Noise for step, (B, 2, L)
-        :param t: t int {0, 1, 2, ... T-1}
-        :return: eps_0_to_tp1
-        """
-        if t == 0:
-            return eps_t_to_tp1
+        According to diffusion formula:
+        x_t = sqrt(alpha_bar[t]) * x_0 + sqrt(1 - alpha_bar[t]) * epsilon
 
-        original_shape = eps_0_to_t.shape
+        Solve for epsilon:
+        epsilon = (x_t - sqrt(alpha_bar[t]) * x_0) / sqrt(1 - alpha_bar[t])
 
-        term_2 = torch.sqrt(self.alpha[t]) * self.sqrt_1_m_αbar[t - 1] * eps_0_to_t.flatten(1)
-
-        term_3 = torch.sqrt(1 - self.alpha[t]) * eps_t_to_tp1.flatten(1)
-
-        return ((term_2 + term_3) / self.sqrt_1_m_αbar[t]).view(original_shape)
-
-
-    def extractNoise(self, x_0, x_t, t):
-        """
-        According to diffuse:
-        x_t = sqrt(alpha_bar[t]) * x_0 + sqrt(1 - alpha_bar[t]) * eps_0:t
-
-        eps_0:t = (x_tp1 - sqrt(alpha_bar[t]) * x_0) / sqrt(1 - alpha_bar[t])
-        """
-
-        original_shape = x_0.shape
-
-        eps_0_to_t = (x_t.flatten(1) - self.sqrt_αbar[t] * x_0.flatten(1)) / self.sqrt_1_m_αbar[t]
-
-        return eps_0_to_t.view(original_shape)
-
-
-    def computeVelocity(self, x_0: Tensor, eps_0_to_t: Tensor, t: int) -> Tensor:
-        """
-        Computes the variance term V for the diffusion process.
-
-        :param x_0: Original sample.
-        :param eps_0_to_t: Combined noise.
-        :param t: Current time step.
-        :return: The variance term V at time step t.
+        :param x_0: Original sample at timestep 0
+        :param x_t: Noisy sample at timestep t
+        :param t: Timestep, either int or Tensor
+        :return: Extracted noise epsilon
         """
         original_shape = x_0.shape
-        return (self.sqrt_αbar[t] * eps_0_to_t.flatten(1) - self.sqrt_1_m_αbar[t] * x_0.flatten(1)).view(original_shape)
+        x_0_flat = x_0.flatten(1)
+        x_t_flat = x_t.flatten(1)
+
+        sqrt_alpha_bar_t = self.sqrt_alpha_bars[t]
+        sqrt_1m_alpha_bar_t = self.sqrt_1m_alpha_bars[t]
+
+        epsilon = (x_t_flat - sqrt_alpha_bar_t * x_0_flat) / sqrt_1m_alpha_bar_t
+        return epsilon.view(original_shape)
 
 
-    def extractVelocity(self, x_0: Tensor, x_t: Tensor, t: int) -> Tensor:
+    def computeVelocity(self, x_0: Tensor, epsilon: Tensor, t: Union[int, Tensor]) -> Tensor:
         """
-        According to diffuse:
-        x_t = sqrt(alpha_bar[t]) * x_0 + sqrt(1 - alpha_bar[t]) * eps_0:t
+        Compute velocity prediction target from x_0 and noise.
 
-        V = sqrt(alpha_bar[t]) * eps_0:t - sqrt(1 - alpha_bar[t]) * x_0
+        v = sqrt(alpha_bar[t]) * epsilon - sqrt(1 - alpha_bar[t]) * x_0
+
+        :param x_0: Original sample at timestep 0
+        :param epsilon: Noise
+        :param t: Timestep, either int or Tensor
+        :return: Velocity v
         """
-
         original_shape = x_0.shape
+        x_0_flat = x_0.flatten(1)
+        epsilon_flat = epsilon.flatten(1)
 
-        v_t = (self.sqrt_αbar[t] * x_t.flatten(1) - x_0.flatten(1)) / self.sqrt_1_m_αbar[t]
+        sqrt_alpha_bar_t = self.sqrt_alpha_bars[t]
+        sqrt_1m_alpha_bar_t = self.sqrt_1m_alpha_bars[t]
 
-        return v_t.view(original_shape)
+        v = sqrt_alpha_bar_t * epsilon_flat - sqrt_1m_alpha_bar_t * x_0_flat
+        return v.view(original_shape)
+
+
+    def extractVelocity(self, x_0: Tensor, x_t: Tensor, t: Union[int, Tensor]) -> Tensor:
+        """
+        Extract velocity from x_t given x_0.
+
+        According to diffusion formula:
+        x_t = sqrt(alpha_bar[t]) * x_0 + sqrt(1 - alpha_bar[t]) * epsilon
+
+        And velocity formula:
+        v = sqrt(alpha_bar[t]) * epsilon - sqrt(1 - alpha_bar[t]) * x_0
+
+        Combining these:
+        v = (sqrt(alpha_bar[t]) * x_t - x_0) / sqrt(1 - alpha_bar[t])
+
+        :param x_0: Original sample at timestep 0
+        :param x_t: Noisy sample at timestep t
+        :param t: Timestep, either int or Tensor
+        :return: Extracted velocity v
+        """
+        original_shape = x_0.shape
+        x_0_flat = x_0.flatten(1)
+        x_t_flat = x_t.flatten(1)
+
+        sqrt_alpha_bar_t = self.sqrt_alpha_bars[t]
+        sqrt_1m_alpha_bar_t = self.sqrt_1m_alpha_bars[t]
+
+        v = (sqrt_alpha_bar_t * x_t_flat - x_0_flat) / sqrt_1m_alpha_bar_t
+        return v.view(original_shape)
 
 
