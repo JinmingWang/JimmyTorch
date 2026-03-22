@@ -69,8 +69,18 @@ class DDIM:
                     v_pred: Tensor,
                     x_tp1: Tensor,
                     t: Tensor,
-                    next_t: Tensor,
+                    smaller_t: Tensor,
                     need_x0: bool = False) -> Tensor:
+        """
+        :param x0_pred: Predicted x0, if not predicting x0, set to None
+        :param epsilon_pred: Predicted epsilon, if not predicting epsilon, set to None
+        :param v_pred: Predicted velocity, if not predicting velocity, set to None
+        :param x_tp1: The sample at time step t+1, e.g., x_60
+        :param t: The current time step, e.g., 59
+        :param smaller_t: The next time step, e.g., 58. Note that next_t is the next time stamp during denoising, so smaller
+        :param need_x0: If True, also return x0
+        :return: 
+        """
         original_shape = x_tp1.shape
 
         if v_pred is not None:
@@ -91,7 +101,7 @@ class DDIM:
         # if t <= self.skip_step, then mask is 1, which means return pred_x0
         # otherwise, mask is 0, which means return diffuse
         mask = (t == 0).to(x0_pred.dtype).view(-1, 1)
-        output = (x0_pred * mask + self.diffuse(x0_pred, next_t, epsilon_pred) * (1 - mask)).view(*original_shape)
+        output = (x0_pred * mask + self.diffuse(x0_pred, smaller_t, epsilon_pred) * (1 - mask)).view(*original_shape)
 
         if need_x0:
             return output, x0_pred.view(*original_shape)
@@ -129,6 +139,8 @@ class DDIM:
         for ti, t in enumerate(pbar):
             x0_pred, epsilon_pred, v_pred = pred_func(x_t, all_t[:, t], **pred_func_args)
             t_next = 0 if ti + 1 == len(t_schedule) else t_schedule[ti + 1]
+            # t_next is smaller than t
+            # all_t[:, t_next] is smaller than all_t[:, t]
             x_t = self.denoiseStep(x0_pred, epsilon_pred, v_pred, x_t, all_t[:, t], all_t[:, t_next])
 
         return x_t
