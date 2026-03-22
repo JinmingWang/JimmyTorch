@@ -31,6 +31,7 @@ class ProgressManager:
         self.start_time = time.time()  # Start tracking time
         self.console = Console(width=self.total_width + 6 + len(self.custom_fields))
         self.live = None
+        self._stop_signal = False
 
         self.current_epoch = 1
         self.current_step = 1
@@ -138,7 +139,7 @@ class ProgressManager:
 
     def live_update(self):
         with self.live:
-            while self.overall_progress != self.total_steps:
+            while self.overall_progress != self.total_steps and not self._stop_signal:
                 # Update the live display
                 self.live.update(self.render_progress_table(self.current_epoch))
                 time.sleep(self.refresh_interval)
@@ -147,6 +148,7 @@ class ProgressManager:
     def close(self):
         """Close the live display."""
         if hasattr(self, "live_thread"):
+            self._stop_signal = True
             self.live.stop()
             self.live_thread.join()
             del self.live_thread
