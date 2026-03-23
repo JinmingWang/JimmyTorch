@@ -55,6 +55,29 @@ class DDIM:
         self.sqrt_alpha_bars = torch.sqrt(alpha_bars).view(-1, 1)
         self.sqrt_1m_alpha_bars = torch.sqrt(1.0 - alpha_bars).view(-1, 1)
 
+
+    def diffuseStep(self, x_t: Tensor, t: Union[int, Tensor], epsilon_t_to_tp1: Tensor) -> Tensor:
+        """
+        Diffuse one step from x_t to x_{t+1} using the noise epsilon.
+
+        Formula: x_{t+1} = sqrt(alpha[t]) * x_t + sqrt(1 - alpha[t]) * epsilon
+
+        :param x_t: Sample at timestep t, shape (B, ...)
+        :param t: Timestep, either int or Tensor of shape (B,)
+        :param epsilon_t_to_tp1: Noise to add, same shape as x_t
+        :return: Noisy sample at timestep t+1, same shape as x_t
+        """
+        original_shape = x_t.shape
+        x_t_flat = x_t.flatten(1)
+        epsilon_flat = epsilon_t_to_tp1.flatten(1)
+
+        sqrt_alpha_t = torch.sqrt(self.alphas[t])
+        sqrt_1m_alpha_t = torch.sqrt(1 - self.alphas[t])
+
+        x_tp1_flat = sqrt_alpha_t * x_t_flat + sqrt_1m_alpha_t * epsilon_flat
+        return x_tp1_flat.view(original_shape)
+
+
     def diffuse(self, x_0: Tensor, t: Union[int, Tensor], noise: Optional[Tensor] = None) -> Tensor:
         """
         Forward diffusion: Add noise to x_0 to get x_t.
