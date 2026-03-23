@@ -55,7 +55,7 @@ class ProgressManager:
             self.console.print("[bold green]Starting Training...[/bold green]")
             self.live = Live(self.render_progress_table(1), refresh_per_second=1, console=self.console)
             self.start_time = time.time()
-            self.live_thread = Thread(target=self.live_update)
+            self.live_thread = Thread(target=self.live_update, daemon=True)  # FIXED: daemon=True
             self.live_thread.start()
 
         """Update the progress of the current epoch and overall progress."""
