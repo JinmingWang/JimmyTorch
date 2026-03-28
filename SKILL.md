@@ -16,9 +16,6 @@ The following files give an example of how to build a project with JimmyTorch:
 `Models/SampleCNN/*` - Example model implementation.
 `Datasets/MNISTDataset.py` - Example dataset implementation.
 
-[![en](https://img.shields.io/badge/lang-en-blue.svg)](README.md)
-[![cn](https://img.shields.io/badge/lang-cn-red.svg)](README.cn.md)
-
 ---
 
 ## 1. Dataset
