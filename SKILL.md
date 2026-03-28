@@ -1,3 +1,10 @@
+---
+name: JimmyTorch
+description: A personal deep learning experiment pipeline including - 1) dataset and data loading; 2) frequently used NN modules and model design; and 3) training and evaluation pipelines. Use when you want to create, edit, or run deep learning experiments with JimmyTorch.
+homepage: https://github.com/JinmingWang/JimmyTorch
+---
+
+
 # JimmyTorch
 
 A personal PyTorch-based deep learning framework integrating dataset management, model training, experiment orchestration, and visualization. Optimized for research workflows with trajectory/sequential data.
