@@ -98,7 +98,7 @@ class JimmyModel(nn.Module):
         """
         # Here we can add code to generate visualizations (e.g., figures) based on the model output and input data.
         test_returns = self.testStep(data_dict)  # Get the test step results (metrics and output)
-        test_returns[1]['fig'] = torch.zeors(4, 4, 3).numpy()  # Placeholder for visualization figure, replace with actual figure generation code
+        test_returns[1]['fig'] = torch.zeros(4, 4, 3).numpy()  # Placeholder for visualization figure, replace with actual figure generation code
 
         return test_returns
 
