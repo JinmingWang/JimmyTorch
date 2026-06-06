@@ -202,6 +202,8 @@ class PosEncoderRotary(_nn.Module):
     """ https://arxiv.org/abs/2104.09864 """
     def __init__(self, dim: int, max_len: int=5000, base: float=10000.0):
         super().__init__()
+        if dim % 2 != 0:
+            raise ValueError(f"PosEncoderRotary requires an even dim, got {dim}.")
         self.dim = dim
         self.max_len = max_len
 
@@ -209,16 +211,18 @@ class PosEncoderRotary(_nn.Module):
         self.register_buffer("inv_freq", inv_freq)
 
         # build cache
-        t = _torch.arange(max_len).unsqueeze(1).float()
+        t = _torch.arange(max_len).float()
         freqs = _torch.einsum("i,j->ij", t, inv_freq)
-        emb = _torch.cat((freqs, freqs), dim=-1)
-        self.register_buffer("cos_cached", emb.cos()[None, :, None, :])
-        self.register_buffer("sin_cached", emb.sin()[None, :, None, :])
+        self.register_buffer("cos_cached", freqs.cos()[None, :, :])
+        self.register_buffer("sin_cached", freqs.sin()[None, :, :])
 
     def forward(self, x: _torch.Tensor) -> _torch.Tensor:
         seq_len = x.size(1)
-        cos = self.cos_cached[:, :seq_len, :, :]
-        sin = self.sin_cached[:, :seq_len, :, :]
+        cos = self.cos_cached[:, :seq_len, :].to(dtype=x.dtype, device=x.device)
+        sin = self.sin_cached[:, :seq_len, :].to(dtype=x.dtype, device=x.device)
+        while cos.ndim < x.ndim:
+            cos = cos.unsqueeze(-2)
+            sin = sin.unsqueeze(-2)
         x1, x2 = x[..., ::2], x[..., 1::2]
         x = _torch.stack((x1, x2), dim=-1)
         x_rotated = _torch.stack((
