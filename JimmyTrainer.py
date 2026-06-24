@@ -3,6 +3,7 @@ import torch.nn as nn
 from Datasets import *
 from Training import *
 from Models import JimmyModel, SampleCNN
+import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 from rich import print as rprint
@@ -162,7 +163,9 @@ class JimmyTrainer:
 
         # Log visualization if available
         if tm is not None and "fig" in output_dict:
-            tm.log(pm.overall_progress, Visualization=output_dict["fig"])
+            fig = output_dict["fig"]
+            tm.log(pm.overall_progress, Visualization=fig)
+            plt.close(fig)
 
         self.model.train()
 
