@@ -8,5 +8,7 @@ from .TrajectoryUtils import Traj, BatchTraj, getLat, getLng, computeDistance, c
 
 from .SequenceUtils import cropPadSequence
 
+from .ThreeDUtils import *
+
 from typing import *
 import torch
