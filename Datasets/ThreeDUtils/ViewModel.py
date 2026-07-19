@@ -94,8 +94,8 @@ def build_edge_trace(vertices: torch.Tensor) -> go.Scatter3d:
 
 def flatten_intersection_points(points_list: List[torch.Tensor]) -> Tuple[np.ndarray, np.ndarray]:
 	"""
-	Flatten meshSlicing's per-plane `points_list` (list of (M_p, 2, 3) tensors)
-	into a single deduplicated (N, 3) points array and a matching (N,)
+	Flatten meshSlicing's per-plane `points_list` (list of (N_p, 3) tensors)
+	into a single (N, 3) points array and a matching (N,)
 	plane-id array, ready for plotting.
 	"""
 	all_points = []
@@ -103,7 +103,7 @@ def flatten_intersection_points(points_list: List[torch.Tensor]) -> Tuple[np.nda
 	for plane_index, points in enumerate(points_list):
 		if points.numel() == 0:
 			continue
-		flat = points.detach().cpu().numpy().reshape(-1, 3)
+		flat = points.detach().cpu().numpy()
 		all_points.append(flat)
 		all_plane_ids.append(np.full(len(flat), plane_index, dtype=np.int64))
 
@@ -112,12 +112,7 @@ def flatten_intersection_points(points_list: List[torch.Tensor]) -> Tuple[np.nda
 
 	points = np.concatenate(all_points, axis=0)
 	plane_ids = np.concatenate(all_plane_ids, axis=0)
-
-	# Deduplicate (point, plane) rows to avoid plotting the same point twice -
-	# shared mesh edges are visited independently by both adjacent triangles.
-	combined = np.concatenate([points, plane_ids[:, None].astype(points.dtype)], axis=1)
-	unique_combined = np.unique(combined, axis=0)
-	return unique_combined[:, :3], unique_combined[:, 3].astype(np.int64)
+	return points, plane_ids
 
 
 def build_points_trace(points: np.ndarray, plane_ids: np.ndarray) -> go.Scatter3d:

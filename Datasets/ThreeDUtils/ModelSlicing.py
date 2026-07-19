@@ -37,10 +37,10 @@ def meshSlicing(
         Tuple of:
         - indices_list: list of length P (one per plane); indices_list[p] is a
           (M_p,) tensor of triangle indices intersected by plane p
-        - points_list: list of length P; points_list[p] is a (M_p, 2, 3) tensor
-          of intersection points for plane p (each face contributes 2 points)
-        - plane_points: Tensor of shape (P, 3), the 3D anchor point of each
-          plane (useful for visualization)
+                - slices_points: list of length P; slices_points[p] is a (N_p, 3)
+                    tensor of unique intersection points for plane p
+                - plane_centers: Tensor of shape (P, 3), the center point of each
+                    plane's slice; empty planes fall back to their axis anchor point
     """
     if plane_interval <= 0:
         raise ValueError("plane_interval must be positive")
@@ -80,7 +80,7 @@ def meshSlicing(
 
     # (P,) scalar offsets of each plane along the axis, and their 3D anchor points
     offsets = start_proj + torch.arange(n_planes, dtype=dtype, device=DEVICE) * plane_interval  # (P,)
-    plane_points = offsets.unsqueeze(1) * axis.unsqueeze(0)  # (P, 3)
+    plane_anchors = offsets.unsqueeze(1) * axis.unsqueeze(0)  # (P, 3)
 
     # Since every plane shares the same normal, the signed distance of a vertex
     # to plane p is just its projection minus that plane's scalar offset -
@@ -101,11 +101,11 @@ def meshSlicing(
     flat_idx = torch.where(intersect_mask.reshape(-1))[0]  # (T,) index into flattened (P, F)
 
     empty_indices = [torch.empty((0,), dtype=torch.long, device=DEVICE) for _ in range(n_planes)]
-    empty_points = [torch.empty((0, 2, 3), dtype=dtype, device=DEVICE) for _ in range(n_planes)]
+    empty_points = [torch.empty((0, 3), dtype=dtype, device=DEVICE) for _ in range(n_planes)]
 
     T = len(flat_idx)
     if T == 0:
-        return empty_indices, empty_points, plane_points
+        return empty_indices, empty_points, plane_anchors
 
     plane_idx = torch.div(flat_idx, F, rounding_mode='floor')  # (T,)
     tri_idx = flat_idx % F  # (T,)
@@ -248,10 +248,18 @@ def meshSlicing(
     # plane. This loop is over P (the number of planes, typically small), not
     # over triangles, so it stays cheap.
     indices_list = []
-    points_list = []
+    slices_points = []
+    plane_centers = plane_anchors.clone()
     for p in range(n_planes):
         sel = final_plane_idx == p
         indices_list.append(final_tri_idx[sel])
-        points_list.append(final_points[sel])
+        plane_points = final_points[sel].reshape(-1, 3)
+        if plane_points.numel() == 0:
+            slices_points.append(empty_points[p])
+            continue
 
-    return indices_list, points_list, plane_points
+        unique_points = torch.unique(plane_points, dim=0)
+        slices_points.append(unique_points)
+        plane_centers[p] = unique_points.mean(dim=0)
+
+    return indices_list, slices_points, plane_centers
