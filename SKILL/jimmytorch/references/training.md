@@ -81,16 +81,35 @@ model = cfg.build()
 - `Trainer`: Executes training loop, handles evaluation, checkpointing, LR scheduling, a template is at `JimmyTorch/JimmyTrainer.py`.
 - `Experiment`: Manages overall experiment, holds configs, starts training, a template is at `JimmyTorch/JimmyExperiment.py`.
 
-## Runtime Parameter Hot-Reload
+## Browser Training Monitor
 
-Edit `runtime_param_buffer.yaml` during training:
+`JimmyTrainer` starts a lightweight browser monitor by default. At startup it prints a URL such as `http://127.0.0.1:8000`; if that port is busy, it tries the next available port.
 
-```yaml
-# Runs/.../runtime_param_buffer.yaml
-LR: 0.0001  # Change this to adjust learning rate
+The monitor is designed for one active run. It reports batch-level progress, current metrics, throughput, ETA, recent events, and a rolling metric chart without replacing TensorBoard's long-term experiment records. It uses bounded in-memory state and browser polling, so it does not write metric history or add a background model-processing workload.
+
+For a remote machine, forward the printed port through SSH:
+
+```bash
+ssh -L 8000:127.0.0.1:8000 user@training-host
 ```
 
-Changes apply on next epoch. No need to restart training!
+Then open `http://127.0.0.1:8000` locally. Substitute the actual printed port if it is not `8000`.
+
+The following optional trainer constants configure the monitor:
+
+```python
+experiment.constants["progress_show_recent_epochs"] = 5
+experiment.constants["progress_show_recent_steps"] = None
+experiment.constants["progress_refresh_interval"] = 1.0
+experiment.constants["progress_host"] = "127.0.0.1"
+experiment.constants["progress_port"] = 8000
+```
+
+Use either `progress_show_recent_epochs` or `progress_show_recent_steps`. When both are provided, recent step history takes precedence. The default loopback host is intended for SSH port forwarding and keeps learning-rate controls off the local network.
+
+## Runtime Learning-Rate Control
+
+Set a positive finite learning rate in the browser monitor and confirm the change. The trainer applies the request immediately before the next training batch. This does not change the existing epoch-based evaluation, checkpointing, or scheduler cadence.
 
 ## Resume Training
 
@@ -135,6 +154,6 @@ The `test()` method returns a pandas DataFrame with per-sample metrics.
 
 ## Progress Monitoring
 
-1. Terminal display with Rich library
+1. Browser monitor for batch-level status and runtime learning-rate control
 2. The `log.txt` file for LLM-readable logs in the train folder
-3. TensorBoard for detailed metric visualization
+3. TensorBoard for detailed metric visualization and persistent experiment records

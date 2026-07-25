@@ -274,7 +274,7 @@ test_report.to_csv("test_results.csv")
 - **DynamicConfig模式**：延迟对象实例化直到调用 `build()`。允许在不重新创建对象的情况下运行时修改超参数。
 - **自定义目录命名**：向 `JimmyExperiment.__init__()` 传递 `dir_name` 参数以使用有意义的运行名称而不是时间戳。如果未提供，使用时间戳格式 `%y%m%d_%H%M%S`。
 - **分离的测试**：训练和测试现已解耦。`start()` 仅训练；使用 `test()` 方法在多个配置上灵活评估。
-- **运行时参数热重载**：训练在日志目录中创建 `runtime_param_buffer.yaml`。在训练期间编辑此文件以即时调整学习率（更改在下一轮次应用）。
+- **运行时学习率控制**：使用浏览器监视器调整学习率；确认后的更改会在下一训练批次前应用。
 - **训练器类型选择**：设置 `experiment.trainer_type` 以使用自定义训练器类用于不同的训练范式（例如，基于迭代、GAN训练）。
 - **早停**：在常量中设置 `early_stop_lr` 以在学习率降至阈值以下时自动停止训练。
 - **JimmyLRScheduler阶段**：(1) 正弦上升到 peak_lr 的预热，(2) 带高频调制的余弦退火，(3) 检测到停滞时的指数衰减。
@@ -297,7 +297,7 @@ test_report.to_csv("test_results.csv")
 
 4. **启动训练**：调用 `experiment.start(checkpoint=None)` 构建组件、创建目录并执行训练循环。返回训练器对象供进一步使用。
 
-5. **监控进度**：通过 `ProgressManager` 在终端查看实时进度，在 `Runs/{数据集名}/{模型名}/{dir_name}/` 检查 TensorBoard 日志。训练期间，编辑 `runtime_param_buffer.yaml` 以调整学习率。
+5. **监控进度**：打开训练启动时打印的浏览器监视器 URL 以查看实时进度并控制学习率，在 `Runs/{数据集名}/{模型名}/{dir_name}/` 检查 TensorBoard 日志。
 
 6. **评估和测试**：训练后，调用 `experiment.test(model, test_set)` 在测试集上评估并获取详细的 DataFrame 报告。使用 `test_report.to_csv()` 保存。可以在不重新训练的情况下测试多个配置。
 

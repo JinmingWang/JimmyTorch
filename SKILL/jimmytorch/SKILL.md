@@ -69,7 +69,7 @@ Runs/
 └── ...
 ```
 
-Where each train folder contains 1) `best.pth` - best checkpoint, 2) `last.pth` - latest checkpoint, 3) `comments.txt` - training comments and hyper-params, 4) `events.out...` - Tensorboard logs, 5) `model_arch.txt` - model architecture printout, 6) `runtime_param_buffer.yaml` - for hot-reloading params during training, 7) `log.txt` - LLM readable training log, and 8) any generated test results (e.g. `results.csv`).
+Where each train folder contains 1) `best.pth` - best checkpoint, 2) `last.pth` - latest checkpoint, 3) `comments.txt` - training comments and hyper-params, 4) `events.out...` - Tensorboard logs, 5) `model_arch.txt` - model architecture printout, 6) `log.txt` - LLM readable training log, and 7) any generated test results (e.g. `results.csv`).
 
 The `TrainEvalTest/` folder contains the training orchestration code, including the `Experiment` class which manages the entire lifecycle of an experiment, and the `Trainer` class which implements the training loop. The `main_*.py` files are the entry points for training and testing, where you configure your experiment and start the process.
 

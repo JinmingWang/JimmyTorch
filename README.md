@@ -324,7 +324,7 @@ You should refer to `JimmyExperiment.py` and `JimmyTrainer.py` for example imple
 - **DynamicConfig Pattern**: Defers object instantiation until `build()` is called. Allows runtime modification of hyperparameters without recreating objects.
 - **Custom Directory Naming**: Pass `dir_name` parameter to `JimmyExperiment.__init__()` for meaningful run names instead of timestamps. If not provided, uses timestamp format `%y%m%d_%H%M%S`.
 - **Separated Testing**: Training and testing are now decoupled. `start()` only trains; use `test()` method for flexible evaluation on multiple configurations.
-- **Runtime Parameter Hot-Reload**: Training creates `runtime_param_buffer.yaml` in log directory. Edit this file during training to adjust learning rate on-the-fly (changes apply on next epoch).
+- **Runtime Learning-Rate Control**: Use the browser monitor to change learning rate; confirmed changes apply before the next training batch.
 - **Trainer Type Selection**: Set `experiment.trainer_type` to use custom trainer classes for different training paradigms (e.g., iteration-based, GAN training).
 - **Early Stopping**: Set `early_stop_lr` in constants to automatically stop training when learning rate drops below threshold.
 - **Plateau Detection**: LR scheduler tracks moving average of metric over `window_size` epochs. If no improvement for `patience` epochs, triggers decay.
@@ -348,7 +348,7 @@ You should refer to `JimmyExperiment.py` and `JimmyTrainer.py` for example imple
 
 4. **Launch Training**: Call `experiment.start(checkpoint=None)` to build components, create directories, and execute training loop. Returns trainer object for further use.
 
-5. **Monitor Progress**: View real-time progress in terminal via `ProgressManager`, check TensorBoard logs at `Runs/{DatasetName}/{ModelName}/{dir_name}/`. During training, edit `runtime_param_buffer.yaml` to adjust learning rate.
+5. **Monitor Progress**: Open the browser monitor URL printed at training startup for real-time progress and learning-rate control; check TensorBoard logs at `Runs/{DatasetName}/{ModelName}/{dir_name}/`.
 
 6. **Evaluate and Test**: After training, call `experiment.test(model, test_set)` to evaluate on test set and get detailed DataFrame report. Save with `test_report.to_csv()`. Can test multiple configurations without retraining.
 

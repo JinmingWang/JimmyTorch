@@ -9,7 +9,6 @@ import os
 from rich import print as rprint
 from typing import Dict, Any
 import inspect
-import yaml
 
 
 class JimmyTrainer:
@@ -19,13 +18,18 @@ class JimmyTrainer:
                  train_set: JimmyDataset,
                  eval_set: JimmyDataset,
                  model: JimmyModel,
-                 lr_scheduler: JimmyLRScheduler | torch.optim.lr_scheduler._LRScheduler,
+                 lr_scheduler: Any,
                  log_dir: str,
                  save_dir: str,
                  n_epochs: int,
                  moving_avg: int,
                  eval_interval: int = 1,
-                 early_stop_lr: float = 0.0) -> None:
+                 early_stop_lr: float = 0.0,
+                 progress_show_recent_epochs: int = 5,
+                 progress_show_recent_steps: int | None = None,
+                 progress_refresh_interval: float = 1.0,
+                 progress_host: str = "127.0.0.1",
+                 progress_port: int = 8000) -> None:
         """
         Initialize the trainer with a dataset, model, optimizer, and comments.
 
@@ -59,6 +63,11 @@ class JimmyTrainer:
         self.moving_avg = moving_avg
         self.eval_interval = eval_interval
         self.early_stop_lr = early_stop_lr
+        self.progress_show_recent_epochs = progress_show_recent_epochs
+        self.progress_show_recent_steps = progress_show_recent_steps
+        self.progress_refresh_interval = progress_refresh_interval
+        self.progress_host = progress_host
+        self.progress_port = progress_port
 
 
     def start(self) -> None:
@@ -69,23 +78,33 @@ class JimmyTrainer:
         """
         pm_log_tags = self.model.train_loss_names + ["LR"]
         tm_log_tags = self.model.train_loss_names + self.model.eval_loss_names + ["LR"]
-        # Initialize progress manager and tensorboard manager
-        pm = ProgressManager(self.train_set.n_batches, self.n_epochs, 5, 2, custom_fields=pm_log_tags)
+
+        pm = ProgressManagerGUI(
+            self.train_set.n_batches,
+            self.n_epochs,
+            show_recent_epochs=self.progress_show_recent_epochs,
+            show_recent_steps=self.progress_show_recent_steps,
+            refresh_interval=self.progress_refresh_interval,
+            custom_fields=pm_log_tags,
+            host=self.progress_host,
+            start_port=self.progress_port,
+        )
+        pm.mark_learning_rate_applied(self.model.lr)
         tm = TensorBoardManager(self.log_dir, tags=tm_log_tags, value_types=["scalar"] * len(tm_log_tags))
         tm.writer.add_text("Comments", "Training Started")
         tm.register("Visualization", "figure")
         ma_losses = {name: MovingAvg(self.moving_avg) for name in self.model.train_loss_names}
-
-        # Runtime parameter buffer for hot-reloading hyperparameters during training
-        runtime_param_file = os.path.join(self.log_dir, "runtime_param_buffer.yaml")
-        with open(runtime_param_file, "w") as f:
-            yaml.dump({"LR": self.model.optimizer.param_groups[0]["lr"]}, f)
 
         best_loss = float('inf')
 
         for epoch in range(self.n_epochs):
             loader = MultiThreadLoader(self.train_set, 3)
             for i, data_dict in enumerate(loader):
+                requested_lr = pm.consume_learning_rate_request()
+                if requested_lr is not None:
+                    self.model.optimizer.param_groups[0]["lr"] = requested_lr
+                    pm.mark_learning_rate_applied(self.model.lr)
+
                 # forward, backward, optimization
                 loss_dict, output_dict = self.model.trainStep(data_dict)
 
@@ -101,18 +120,8 @@ class JimmyTrainer:
             tm.log(pm.overall_progress, LR=self.model.lr, **loss_dict)
 
             # Update learning rate scheduler
-            prev_lr = self.model.lr
             self.lr_scheduler.update(loss_dict["Train/Main"])
-            
-            # Update runtime param file when LR changes
-            if self.model.lr != prev_lr:
-                with open(runtime_param_file, "w") as f:
-                    yaml.dump({"LR": self.model.lr}, f)
-            
-            # Load runtime parameters (allows user to manually adjust LR during training)
-            with open(runtime_param_file, "r") as f:
-                runtime_params = yaml.safe_load(f)
-                self.model.optimizer.param_groups[0]["lr"] = float(runtime_params["LR"])
+            pm.mark_learning_rate_applied(self.model.lr)
 
             if epoch % self.eval_interval == 0:
                 eval_losses = self.evaluate(self.eval_set, pm=pm, tm=tm)

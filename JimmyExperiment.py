@@ -9,7 +9,6 @@ from datetime import datetime
 import os
 from rich import print as rprint
 import pandas as pd
-import yaml
 
 
 class JimmyExperiment:
