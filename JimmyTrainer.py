@@ -25,11 +25,10 @@ class JimmyTrainer:
                  moving_avg: int,
                  eval_interval: int = 1,
                  early_stop_lr: float = 0.0,
-                 progress_show_recent_epochs: int = 5,
-                 progress_show_recent_steps: int | None = None,
+                 progress_show_recent_steps: int = 200,
                  progress_refresh_interval: float = 1.0,
                  progress_host: str = "127.0.0.1",
-                 progress_port: int = 8000) -> None:
+                 progress_port: int = 9000) -> None:
         """
         Initialize the trainer with a dataset, model, optimizer, and comments.
 
@@ -42,6 +41,9 @@ class JimmyTrainer:
         :param moving_avg: An integer specifying the window size for calculating the moving average of the loss. Default is 100.
         :param eval_interval: An integer specifying the interval (in epochs) at which to evaluate the model on the validation set.
         :param early_stop_lr: A float specifying the learning rate threshold for early stopping. Default is 0.0 (no early stopping).
+
+        :param progress_show_recent_steps: show recent steps in GUI
+        :param progress_refresh_interval: refresh interval for GUI (in seconds)
         """
 
         self.train_set = train_set
@@ -63,7 +65,6 @@ class JimmyTrainer:
         self.moving_avg = moving_avg
         self.eval_interval = eval_interval
         self.early_stop_lr = early_stop_lr
-        self.progress_show_recent_epochs = progress_show_recent_epochs
         self.progress_show_recent_steps = progress_show_recent_steps
         self.progress_refresh_interval = progress_refresh_interval
         self.progress_host = progress_host
@@ -82,7 +83,6 @@ class JimmyTrainer:
         pm = ProgressManagerGUI(
             self.train_set.n_batches,
             self.n_epochs,
-            show_recent_epochs=self.progress_show_recent_epochs,
             show_recent_steps=self.progress_show_recent_steps,
             refresh_interval=self.progress_refresh_interval,
             custom_fields=pm_log_tags,

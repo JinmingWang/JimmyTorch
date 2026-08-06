@@ -3,7 +3,7 @@ import math
 import mimetypes
 import threading
 import time
-from collections import OrderedDict, deque
+from collections import deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,21 +21,18 @@ class ProgressManagerGUI:
     def __init__(self,
                  items_per_epoch: int,
                  epochs: int,
-                 show_recent_epochs: int = 5,
                  refresh_interval: float = 1.0,
                  custom_fields: List[str] | None = None,
-                 show_recent_steps: int | None = None,
+                 show_recent_steps: int = 200,
                  host: str = "127.0.0.1",
-                 start_port: int = 8000,
+                 start_port: int = 9000,
                  auto_start: bool = True):
         if items_per_epoch <= 0:
             raise ValueError("items_per_epoch must be positive.")
         if epochs <= 0:
             raise ValueError("epochs must be positive.")
-        if show_recent_epochs <= 0:
-            raise ValueError("show_recent_epochs must be positive.")
-        if show_recent_steps is not None and show_recent_steps <= 0:
-            raise ValueError("show_recent_steps must be positive when provided.")
+        if show_recent_steps <= 0:
+            raise ValueError("show_recent_steps must be positive.")
         if refresh_interval <= 0:
             raise ValueError("refresh_interval must be positive.")
         if not 0 < start_port < 65536:
@@ -44,7 +41,6 @@ class ProgressManagerGUI:
         self.epochs = epochs
         self.steps_per_epoch = items_per_epoch
         self.total_steps = epochs * items_per_epoch
-        self.show_recent_epochs = show_recent_epochs
         self.show_recent_steps = show_recent_steps
         self.refresh_interval = refresh_interval
         self.custom_fields = [] if custom_fields is None else list(custom_fields)
@@ -55,10 +51,7 @@ class ProgressManagerGUI:
         self.current_epoch = 0
         self.current_step = 0
         self.start_time = time.time()
-        self._epoch_states: OrderedDict[int, dict[str, Any]] = OrderedDict()
-        self._events: deque[dict[str, Any]] = deque(
-            maxlen=show_recent_steps if show_recent_steps is not None else 1
-        )
+        self._events: deque[dict[str, Any]] = deque(maxlen=show_recent_steps)
         self._pending_learning_rate: float | None = None
         self._applied_learning_rate: float | None = None
         self._closed = False
@@ -106,22 +99,6 @@ class ProgressManagerGUI:
             for field in self.custom_fields
         }
         with self._lock:
-            state = self._epoch_states.get(current_epoch)
-            if state is None:
-                state = {
-                    "epoch": current_epoch + 1,
-                    "completed": 0,
-                    "t_start": now,
-                    "t_end": None,
-                    "values": {},
-                }
-                self._epoch_states[current_epoch] = state
-
-            state["completed"] = current_step + 1
-            state["values"] = values
-            if state["completed"] == self.steps_per_epoch:
-                state["t_end"] = now
-
             self.overall_progress += 1
             self.current_epoch = current_epoch
             self.current_step = current_step
@@ -132,7 +109,6 @@ class ProgressManagerGUI:
                 "elapsed": now - self.start_time,
                 "values": values,
             })
-            self._trim_epoch_states()
 
     def request_learning_rate(self, learning_rate: Any) -> float:
         """Queue the latest browser learning-rate request for the training thread."""
@@ -166,17 +142,6 @@ class ProgressManagerGUI:
             elapsed = max(0.0, now - self.start_time)
             rate = self.overall_progress / elapsed if elapsed > 0 else 0.0
             remaining_steps = max(0, self.total_steps - self.overall_progress)
-            recent_epochs = []
-            for state in self._epoch_states.values():
-                end = state["t_end"] if state["t_end"] is not None else now
-                recent_epochs.append({
-                    "epoch": state["epoch"],
-                    "completed": state["completed"],
-                    "elapsed": max(0.0, end - state["t_start"]),
-                    "values": dict(state["values"]),
-                    "complete": state["t_end"] is not None,
-                })
-
             return {
                 "status": "closed" if self._closed else "running",
                 "refresh_interval": self.refresh_interval,
@@ -198,8 +163,6 @@ class ProgressManagerGUI:
                     "pending": self._pending_learning_rate,
                 },
                 "recent_events": list(self._events),
-                "recent_epochs": recent_epochs,
-                "history_mode": "steps" if self.show_recent_steps is not None else "epochs",
             }
 
     def close(self) -> None:
@@ -285,11 +248,6 @@ class ProgressManagerGUI:
                 self.wfile.write(content)
 
         return RequestHandler
-
-    def _trim_epoch_states(self) -> None:
-        retained_epochs = 1 if self.show_recent_steps is not None else self.show_recent_epochs
-        while len(self._epoch_states) > retained_epochs:
-            self._epoch_states.popitem(last=False)
 
     @staticmethod
     def _as_scalar(value: Any) -> float | None:

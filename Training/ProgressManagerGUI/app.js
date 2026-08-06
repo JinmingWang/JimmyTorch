@@ -7,8 +7,6 @@ const elements = {
   progressBar: document.querySelector("#overall-progress-bar"),
   progressTrack: document.querySelector(".progress-track"),
   epoch: document.querySelector("#epoch-progress"),
-  step: document.querySelector("#step-progress"),
-  status: document.querySelector("#run-status"),
   metrics: document.querySelector("#metric-cards"),
   metricSelect: document.querySelector("#metric-select"),
   chart: document.querySelector("#metric-chart"),
@@ -26,6 +24,11 @@ function formatNumber(value, precision = 4) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "--";
   if (Math.abs(value) !== 0 && (Math.abs(value) < 0.001 || Math.abs(value) >= 10000)) return value.toExponential(3);
   return value.toFixed(precision);
+}
+
+function formatScientific(value) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "--";
+  return value.toExponential(3);
 }
 
 function formatDuration(seconds) {
@@ -51,8 +54,6 @@ function render(snapshot) {
   elements.progressBar.style.width = `${percentage}%`;
   elements.progressTrack.setAttribute("aria-valuenow", percentage.toFixed(1));
   elements.epoch.textContent = `Epoch ${progress.epoch} / ${progress.epochs}`;
-  elements.step.textContent = `Batch ${progress.step} / ${progress.steps_per_epoch}`;
-  elements.status.textContent = `${snapshot.status} | ${formatNumber(progress.rate, 2)} batch/s | ETA ${formatDuration(progress.remaining)}`;
   elements.appliedLr.textContent = formatNumber(learningRate.applied, 6);
   elements.pendingLr.textContent = learningRate.pending === null ? "None" : formatNumber(learningRate.pending, 6);
   renderMetricCards(progress, fields);
@@ -82,13 +83,7 @@ function renderMetricCards(progress, fields) {
 }
 
 function chartEvents(snapshot) {
-  if (snapshot.history_mode === "steps") return snapshot.recent_events;
-  return snapshot.recent_epochs.map(epoch => ({
-    global_step: epoch.epoch * snapshot.progress.steps_per_epoch,
-    epoch: epoch.epoch,
-    step: epoch.completed,
-    values: epoch.values
-  }));
+  return snapshot.recent_events;
 }
 
 function updateMetricSelect(fields, events) {
@@ -137,7 +132,7 @@ function renderChart(events) {
     const y = padding.top + (plotHeight / 3) * index;
     const labelValue = max - ((span / 3) * index);
     context.beginPath(); context.moveTo(padding.left, y); context.lineTo(width - padding.right, y); context.stroke();
-    context.fillText(formatNumber(labelValue, 3), 2, y + 4);
+    context.fillText(formatScientific(labelValue), 2, y + 4);
   }
   context.strokeStyle = styles.getPropertyValue("--cyan");
   context.lineWidth = 2;
