@@ -1,21 +1,16 @@
 import torch
-import numpy as np
-from typing import List, Tuple, Optional
-import warnings
+from typing import List, Optional, Tuple
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-if torch.cuda.is_available():
-    DEVICE = torch.device('cuda')
-else:
-    warnings.warn("CUDA not available, using CPU. Performance will be poor for large meshes.")
-    DEVICE = torch.device('cpu')
+Axis = Tuple[float, float, float]
 
 def meshSlicing(
     vertices: torch.Tensor,
     plane_interval: float,
-    plane_axis: Optional[Tuple[float, float, float]] = None,
-    initial_point: Optional[Tuple[float, float, float]] = None,
+    plane_axis: Optional[Axis] = None,
+    initial_point: Optional[Axis] = None,
     eps: float = 1e-8
-) -> Tuple[List[torch.Tensor], List[torch.Tensor], torch.Tensor]:
+) -> Tuple[List[torch.Tensor], List[torch.Tensor], torch.Tensor, List[torch.Tensor]]:
     """
     FULLY VECTORIZED slicing of a mesh with a *stack* of parallel planes.
     Every plane shares the same normal `plane_axis`, is spaced `plane_interval`
@@ -41,6 +36,9 @@ def meshSlicing(
                     tensor of unique intersection points for plane p
                 - plane_centers: Tensor of shape (P, 3), the center point of each
                     plane's slice; empty planes fall back to their axis anchor point
+        - segments_per_plane: list of length P; segments_per_plane[p] is a
+          (S_p, 2, 3) tensor of ordered segment endpoints (each triangle-plane
+          intersection contributes one segment; topology preserved for SDF sign)
     """
     if plane_interval <= 0:
         raise ValueError("plane_interval must be positive")
@@ -52,7 +50,7 @@ def meshSlicing(
     # can trade precision for speed without touching this function.
     dtype = vertices.dtype
 
-    axis = torch.tensor(plane_axis, dtype=dtype, device=DEVICE)
+    axis = torch.tensor(plane_axis, dtype=dtype, device=vertices.device)
     axis = axis / (torch.norm(axis) + eps)
 
     # Extract vertices - shape (F, 3) each
@@ -71,7 +69,7 @@ def meshSlicing(
         # the smallest projection, i.e. the extreme point in that direction.
         start_proj = torch.min(torch.stack([proj0.min(), proj1.min(), proj2.min()]))
     else:
-        initial_point_t = torch.tensor(initial_point, dtype=dtype, device=DEVICE)
+        initial_point_t = torch.tensor(initial_point, dtype=dtype, device=vertices.device)
         start_proj = torch.sum(initial_point_t * axis)
 
     max_proj = torch.max(torch.stack([proj0.max(), proj1.max(), proj2.max()]))
@@ -79,7 +77,7 @@ def meshSlicing(
     n_planes = int(span // plane_interval) + 1 if span > 0 else 1
 
     # (P,) scalar offsets of each plane along the axis, and their 3D anchor points
-    offsets = start_proj + torch.arange(n_planes, dtype=dtype, device=DEVICE) * plane_interval  # (P,)
+    offsets = start_proj + torch.arange(n_planes, dtype=dtype, device=vertices.device) * plane_interval  # (P,)
     plane_anchors = offsets.unsqueeze(1) * axis.unsqueeze(0)  # (P, 3)
 
     # Since every plane shares the same normal, the signed distance of a vertex
@@ -100,12 +98,13 @@ def meshSlicing(
     intersect_mask = (has_pos & has_neg) | (has_zero & (has_pos | has_neg))  # (P, F)
     flat_idx = torch.where(intersect_mask.reshape(-1))[0]  # (T,) index into flattened (P, F)
 
-    empty_indices = [torch.empty((0,), dtype=torch.long, device=DEVICE) for _ in range(n_planes)]
-    empty_points = [torch.empty((0, 3), dtype=dtype, device=DEVICE) for _ in range(n_planes)]
+    empty_indices = [torch.empty((0,), dtype=torch.long, device=vertices.device) for _ in range(n_planes)]
+    empty_points = [torch.empty((0, 3), dtype=dtype, device=vertices.device) for _ in range(n_planes)]
+    empty_segments = [torch.empty((0, 2, 3), dtype=dtype, device=vertices.device) for _ in range(n_planes)]
 
     T = len(flat_idx)
     if T == 0:
-        return empty_indices, empty_points, plane_anchors
+        return empty_indices, empty_points, plane_anchors, empty_segments
 
     plane_idx = torch.div(flat_idx, F, rounding_mode='floor')  # (T,)
     tri_idx = flat_idx % F  # (T,)
@@ -176,7 +175,7 @@ def meshSlicing(
     # - 2+ vertices on plane: triangle lies on plane (degenerate)
 
     # Create output tensor for all (plane, triangle) rows
-    points = torch.zeros((T, 2, 3), dtype=dtype, device=DEVICE)
+    points = torch.zeros((T, 2, 3), dtype=dtype, device=vertices.device)
 
     # CASE 1: Standard case (no vertex on plane)
     standard_case = (num_on_plane == 0)  # (T,)
@@ -208,7 +207,7 @@ def meshSlicing(
     one_vertex_case = (num_on_plane == 1) & ~standard_case
 
     # Find the vertex on the plane for each triangle
-    vertex_on_plane = torch.zeros((T, 3), dtype=dtype, device=DEVICE)
+    vertex_on_plane = torch.zeros((T, 3), dtype=dtype, device=vertices.device)
     vertex_on_plane[v0_on_plane] = v0_i[v0_on_plane]
     vertex_on_plane[v1_on_plane] = v1_i[v1_on_plane]
     vertex_on_plane[v2_on_plane] = v2_i[v2_on_plane]
@@ -249,11 +248,14 @@ def meshSlicing(
     # over triangles, so it stays cheap.
     indices_list = []
     slices_points = []
+    segments_per_plane = []
     plane_centers = plane_anchors.clone()
     for p in range(n_planes):
         sel = final_plane_idx == p
         indices_list.append(final_tri_idx[sel])
-        plane_points = final_points[sel].reshape(-1, 3)
+        selected_segments = final_points[sel]
+        segments_per_plane.append(selected_segments)
+        plane_points = selected_segments.reshape(-1, 3)
         if plane_points.numel() == 0:
             slices_points.append(empty_points[p])
             continue
@@ -262,4 +264,15 @@ def meshSlicing(
         slices_points.append(unique_points)
         plane_centers[p] = unique_points.mean(dim=0)
 
-    return indices_list, slices_points, plane_centers
+    return indices_list, slices_points, plane_centers, segments_per_plane
+
+
+def meshSlicing_vectorized(
+    vertices: torch.Tensor,
+    plane_axis: Axis,
+    plane_interval: float,
+    initial_point: Optional[Axis] = None,
+    eps: float = 1e-8,
+) -> Tuple[List[torch.Tensor], List[torch.Tensor], torch.Tensor, List[torch.Tensor]]:
+    """Slice a mesh into deduplicated point clouds + line segments using parallel planes."""
+    return meshSlicing(vertices, plane_interval, plane_axis, initial_point, eps)
