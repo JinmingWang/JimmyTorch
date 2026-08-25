@@ -10,7 +10,7 @@ class MNISTSampleDataset(JimmyDataset):
                  batch_size: int,
                  drop_last: bool = False,
                  shuffle: bool = False):
-        super().__init__(batch_size, drop_last, shuffle)
+        super().__init__(set_name, batch_size, drop_last, shuffle)
         self.set_name = set_name
         self.dataset = torchvision.datasets.MNIST(root='Datasets/MNIST', train=(set_name in ["train", "eval", "debug"]), download=True)
         self.n_samples = len(self.dataset)
@@ -48,7 +48,7 @@ class MNISTSampleDataset(JimmyDataset):
 
 
     def __getitem__(self, idx):
-        start = (idx - 1) * self.batch_size
+        start = idx * self.batch_size
         end = min(start + self.batch_size, self.n_samples)
         indices = self._indices[start:end]
         return {

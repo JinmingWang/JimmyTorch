@@ -70,28 +70,29 @@ class SampleCNN(JimmyModel):
 
 
     def evalStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):
-        test_returns = self(data_dict)
-            
+        with torch.no_grad():
+            output = self(data_dict['input'])
+            loss = self.ce_loss(output, data_dict['target'])
+
         # Generate visualization
         plt.close("all")
         fig, axes = plt.subplots(2, 5, figsize=(12, 5))
         axes = axes.flatten()
-        
+
         # Show first 10 images with predictions
         for i in range(min(10, data_dict['input'].shape[0])):
             img = data_dict['input'][i].cpu().squeeze()
-            pred_label = torch.argmax(test_returns[1]['output'][i]).item()
+            pred_label = torch.argmax(output[i]).item()
             true_label = data_dict['target'][i].item()
-            
+
             axes[i].imshow(img, cmap='gray')
             axes[i].axis('off')
             color = 'green' if pred_label == true_label else 'red'
             axes[i].set_title(f"Pred: {pred_label}\nTrue: {true_label}", color=color, fontsize=10)
-        
+
         plt.tight_layout()
-        
-        test_returns[1]["fig"] = fig
-        return test_returns
+
+        return {"Eval/Main": loss.item()}, {"output": output.detach(), "fig": fig}
 
 
     def testStep(self, data_dict) -> (dict[str, Any], dict[str, Any]):

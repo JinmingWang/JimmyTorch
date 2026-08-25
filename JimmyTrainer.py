@@ -2,12 +2,20 @@ import torch
 import torch.nn as nn
 from Datasets import *
 from Training import *
+from Training.ExperimentManager import (
+    ExperimentLogger,
+    ExperimentManagerClient,
+    STATUS_DONE,
+    STATUS_ERROR,
+    STATUS_EVALUATING,
+    STATUS_TRAINING,
+)
 from Models import JimmyModel, SampleCNN
 import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 from rich import print as rprint
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import inspect
 
 
@@ -28,7 +36,9 @@ class JimmyTrainer:
                  progress_show_recent_steps: int = 200,
                  progress_refresh_interval: float = 1.0,
                  progress_host: str = "127.0.0.1",
-                 progress_port: int = 9000) -> None:
+                 progress_port: int = 9000,
+                 exp_logger: Optional[ExperimentLogger] = None,
+                 enable_tensorboard: bool = False) -> None:
         """
         Initialize the trainer with a dataset, model, optimizer, and comments.
 
@@ -69,6 +79,8 @@ class JimmyTrainer:
         self.progress_refresh_interval = progress_refresh_interval
         self.progress_host = progress_host
         self.progress_port = progress_port
+        self.exp_logger = exp_logger
+        self.enable_tensorboard = enable_tensorboard
 
 
     def start(self) -> None:
@@ -80,74 +92,109 @@ class JimmyTrainer:
         pm_log_tags = self.model.train_loss_names + ["LR"]
         tm_log_tags = self.model.train_loss_names + self.model.eval_loss_names + ["LR"]
 
-        pm = ProgressManagerGUI(
-            self.train_set.n_batches,
-            self.n_epochs,
+        run_dir = self.exp_logger.run_dir if self.exp_logger is not None else self.save_dir
+        run_meta = {
+            "dataset_name": (self.exp_logger.dataset_name if self.exp_logger is not None else ""),
+            "model_name": (self.exp_logger.model_name if self.exp_logger is not None else ""),
+            "run_name": (self.exp_logger.run_name if self.exp_logger is not None else ""),
+        }
+        pm = ExperimentManagerClient(
+            items_per_epoch=self.train_set.n_batches,
+            epochs=self.n_epochs,
             show_recent_steps=self.progress_show_recent_steps,
             refresh_interval=self.progress_refresh_interval,
             custom_fields=pm_log_tags,
             host=self.progress_host,
-            start_port=self.progress_port,
+            port=self.progress_port,
+            dataset_name=run_meta["dataset_name"],
+            model_name=run_meta["model_name"],
+            run_name=run_meta["run_name"],
+            run_dir=run_dir,
         )
         pm.mark_learning_rate_applied(self.model.lr)
-        tm = TensorBoardManager(self.log_dir, tags=tm_log_tags, value_types=["scalar"] * len(tm_log_tags))
-        tm.writer.add_text("Comments", "Training Started")
-        tm.register("Visualization", "figure")
+        tm = None
+        if self.enable_tensorboard:
+            tm = TensorBoardManager(self.log_dir, tags=tm_log_tags, value_types=["scalar"] * len(tm_log_tags))
+            tm.writer.add_text("Comments", "Training Started")
+            tm.register("Visualization", "figure")
         ma_losses = {name: MovingAvg(self.moving_avg) for name in self.model.train_loss_names}
 
         best_loss = float('inf')
 
-        for epoch in range(self.n_epochs):
-            loader = MultiThreadLoader(self.train_set, 3)
-            for i, data_dict in enumerate(loader):
-                requested_lr = pm.consume_learning_rate_request()
-                if requested_lr is not None:
-                    self.model.optimizer.param_groups[0]["lr"] = requested_lr
-                    pm.mark_learning_rate_applied(self.model.lr)
+        if self.exp_logger is not None:
+            self.exp_logger.set_status(STATUS_TRAINING)
 
-                # forward, backward, optimization
-                loss_dict, output_dict = self.model.trainStep(data_dict)
+        try:
+            for epoch in range(self.n_epochs):
+                loader = MultiThreadLoader(self.train_set, 3)
+                for i, data_dict in enumerate(loader):
+                    requested_lr = pm.consume_learning_rate_request()
+                    if requested_lr is not None:
+                        self.model.optimizer.param_groups[0]["lr"] = requested_lr
+                        pm.mark_learning_rate_applied(self.model.lr)
 
-                # Compute moving average of losses
-                for loss_name in self.model.train_loss_names:
-                    ma_losses[loss_name].update(loss_dict[loss_name])
-                    loss_dict[loss_name] = ma_losses[loss_name].get()
+                    # forward, backward, optimization
+                    loss_dict, output_dict = self.model.trainStep(data_dict)
 
-                # Update progress manager
-                pm.update(epoch, i, LR=self.model.lr, **loss_dict)
+                    # Compute moving average of losses
+                    for loss_name in self.model.train_loss_names:
+                        ma_losses[loss_name].update(loss_dict[loss_name])
+                        loss_dict[loss_name] = ma_losses[loss_name].get()
 
-            # Update tensorboard
-            tm.log(pm.overall_progress, LR=self.model.lr, **loss_dict)
-
-            # Update learning rate scheduler
-            self.lr_scheduler.update(loss_dict["Train/Main"])
-            pm.mark_learning_rate_applied(self.model.lr)
-
-            if epoch % self.eval_interval == 0:
-                eval_losses = self.evaluate(self.eval_set, pm=pm, tm=tm)
+                    # Update progress manager
+                    pm.update(epoch, i, LR=self.model.lr, **loss_dict)
 
                 # Update tensorboard
-                tm.log(pm.overall_progress, **eval_losses)
+                if tm is not None:
+                    tm.log(pm.overall_progress, LR=self.model.lr, **loss_dict)
 
-                # Determine the best model based on eval_losses["Eval/Main"]
-                eval_loss = eval_losses["Eval/Main"]
-                if eval_loss < best_loss:
-                    best_loss = eval_loss
-                    self.model.saveTo(os.path.join(self.save_dir, "best.pth"))
-                self.model.saveTo(os.path.join(self.save_dir, f"last.pth"))
+                if self.exp_logger is not None:
+                    self.exp_logger.log_scalars(pm.overall_progress, LR=self.model.lr, **loss_dict)
 
-            # Early stopping based on learning rate threshold
-            if self.early_stop_lr > 0 and self.model.lr < self.early_stop_lr:
-                rprint(f"[red]Learning rate {self.model.lr} is lower than early stop threshold {self.early_stop_lr}. Stopping training.[/red]")
-                break
+                # Update learning rate scheduler
+                self.lr_scheduler.update(loss_dict["Train/Main"])
+                pm.mark_learning_rate_applied(self.model.lr)
 
-        pm.close()
+                if epoch % self.eval_interval == 0:
+                    if self.exp_logger is not None:
+                        self.exp_logger.set_status(STATUS_EVALUATING)
+
+                    eval_losses = self.evaluate(self.eval_set, pm=pm, tm=tm)
+
+                    # Update tensorboard
+                    if tm is not None:
+                        tm.log(pm.overall_progress, **eval_losses)
+
+                    if self.exp_logger is not None:
+                        self.exp_logger.log_scalars(pm.overall_progress, **eval_losses)
+                        self.exp_logger.set_status(STATUS_TRAINING)
+
+                    # Determine the best model based on eval_losses["Eval/Main"]
+                    eval_loss = eval_losses["Eval/Main"]
+                    if eval_loss < best_loss:
+                        best_loss = eval_loss
+                        self.model.saveTo(os.path.join(self.save_dir, "best.pth"))
+                    self.model.saveTo(os.path.join(self.save_dir, f"last.pth"))
+
+                # Early stopping based on learning rate threshold
+                if self.early_stop_lr > 0 and self.model.lr < self.early_stop_lr:
+                    rprint(f"[red]Learning rate {self.model.lr} is lower than early stop threshold {self.early_stop_lr}. Stopping training.[/red]")
+                    break
+
+            if self.exp_logger is not None:
+                self.exp_logger.close(final_status=STATUS_DONE)
+        except BaseException as e:
+            if self.exp_logger is not None:
+                self.exp_logger.close_with_error(str(e))
+            raise
+        finally:
+            pm.close()
 
 
     def evaluate(self,
                  dataset: JimmyDataset,
                  compute_avg: bool=True,
-                 pm: ProgressManager = None,
+                 pm: Optional[ExperimentManagerClient] = None,
                  tm: TensorBoardManager = None):
         """
         Evaluate the model on a given dataset.
@@ -171,9 +218,12 @@ class JimmyTrainer:
                 eval_losses[name][i] = loss_dict[name]
 
         # Log visualization if available
-        if tm is not None and "fig" in output_dict:
+        if "fig" in output_dict:
             fig = output_dict["fig"]
-            tm.log(pm.overall_progress, Visualization=fig)
+            if tm is not None:
+                tm.log(pm.overall_progress, Visualization=fig)
+            if self.exp_logger is not None and pm is not None:
+                self.exp_logger.log_figure("Visualization", pm.overall_progress, fig)
             plt.close(fig)
 
         self.model.train()

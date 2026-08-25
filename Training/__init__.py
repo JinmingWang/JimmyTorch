@@ -1,5 +1,4 @@
 from .MovingAverage import MovingAvg, MovingAvgGroup
-from .ProgressManagerGUI import ProgressManagerGUI
 
 try:
 	from .ProgressManager import ProgressManager

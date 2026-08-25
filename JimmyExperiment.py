@@ -2,6 +2,7 @@ from JimmyTrainer import JimmyTrainer
 from Datasets import *
 from Models import *
 from Training import *
+from Training.ExperimentManager import ExperimentLogger, DEFAULT_SERVER_PORT
 import torch
 from typing import *
 from DynamicConfig import DynamicConfig
@@ -49,6 +50,8 @@ class JimmyExperiment:
             "eval_interval": 1,
             "save_dir": None,
             "log_dir": None,
+            "experiment_manager_server_port": DEFAULT_SERVER_PORT,
+            "enable_tensorboard": False,
         }
 
         # Allow trainer type selection for different training paradigms
@@ -122,8 +125,28 @@ class JimmyExperiment:
         rprint(f"[blue]Save directory: {self.constants['save_dir']}.[/blue]")
         rprint(f"[blue]Log directory: {self.constants['log_dir']}.[/blue]")
 
+        dataset_name = train_set.__class__.__name__
+        model_name = model.__class__.__name__
+        exp_logger = ExperimentLogger(
+            run_dir=self.constants['log_dir'],
+            dataset_name=dataset_name,
+            model_name=model_name,
+            run_name=self.dir_name,
+        )
+        exp_logger.set_comments(f"{self.comments}\n{self.__str__()}")
+        exp_logger.set_model_arch(str(model))
+        exp_logger.log_hparams({
+            "dataset": str(self.dataset_cfg),
+            "model": str(self.model_cfg),
+            "lr_scheduler": str(self.lr_scheduler_cfg),
+            **{k: v for k, v in self.constants.items() if k not in ("save_dir", "log_dir")},
+        })
+
         trainer_kwargs["log_dir"] = self.constants['log_dir']
         trainer_kwargs["save_dir"] = self.constants['save_dir']
+        trainer_kwargs["exp_logger"] = exp_logger
+        # Bridge to the trainer's existing progress_port param until Stage 2 lands.
+        trainer_kwargs["progress_port"] = trainer_kwargs.pop("experiment_manager_server_port")
 
         trainer = self.trainer_type(**trainer_kwargs)
         trainer.start()
