@@ -162,9 +162,6 @@
   fill: #0e1a13;
   font: 700 13px var(--font);
 }
-.card-type.is-scrolling {
-  animation: type-marquee 3.6s ease-in-out infinite alternate;
-}
 .card-meta {
   fill: #2c4436;
   font: 10px var(--font-mono);
@@ -189,10 +186,6 @@
 @keyframes dot-out { to { opacity: 0; } }
 @keyframes block-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes block-out { to { opacity: 0; } }
-@keyframes type-marquee {
-  0%, 18% { transform: translateX(0); }
-  82%, 100% { transform: translateX(-34px); }
-}
 
 @media (max-width: 1050px) {
   .arch-workspace { grid-template-columns: 1fr; }

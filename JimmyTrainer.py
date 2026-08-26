@@ -218,11 +218,10 @@ class JimmyTrainer:
                 eval_losses[name][i] = loss_dict[name]
 
         # Log visualization if available
-        if "fig" in output_dict:
+        if tm is not None and "fig" in output_dict:
             fig = output_dict["fig"]
-            if tm is not None:
-                tm.log(pm.overall_progress, Visualization=fig)
-            if self.exp_logger is not None and pm is not None:
+            tm.log(pm.overall_progress, Visualization=fig)
+            if self.exp_logger is not None:
                 self.exp_logger.log_figure("Visualization", pm.overall_progress, fig)
             plt.close(fig)
 

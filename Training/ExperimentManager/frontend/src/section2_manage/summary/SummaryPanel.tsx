@@ -83,7 +83,7 @@ export function SummaryPanel() {
           }}
           disabled={!summary.node.has_arch}
         >
-          🏛 Show Architecture
+          🏛 Architecture
         </button>
         <button
           type="button"
@@ -217,16 +217,14 @@ function HparamsTable({ hparams }: { hparams: RunSummary["hparams"] }) {
   const entries = Object.entries(hparams);
   if (entries.length === 0) return <div className="summary-empty-inline">—</div>;
   return (
-    <table className="hparams-table">
-      <tbody>
-        {entries.map(([k, v]) => (
-          <tr key={k}>
-            <th>{k}</th>
-            <td className="mono">{formatValue(v)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="hparams-cards">
+      {entries.map(([k, v]) => (
+        <div key={k} className="hparams-card">
+          <div className="hparams-card-title">{k}</div>
+          <div className="hparams-card-value mono">{formatValue(v)}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 

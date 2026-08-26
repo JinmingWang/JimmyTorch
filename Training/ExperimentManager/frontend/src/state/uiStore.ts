@@ -28,9 +28,20 @@ interface UIState {
 
   // Curve card UI persisted globally, keyed by tag.
   smoothing: Record<string, number>;
-  collapsed: Record<string, boolean>;
   xlim: Record<string, [number | null, number | null]>;
   ylim: Record<string, [number | null, number | null]>;
+  logScale: Record<string, boolean>;
+  rangeStart: Record<string, number | null>;
+  rangeEnd: Record<string, number | null>;
+
+  // Section collapse state, keyed by section id (e.g. 'curves-train'). Persisted.
+  sectionCollapsed: Record<string, boolean>;
+
+  // Currently-expanded curve tag (only one at a time). Not persisted.
+  expandedTag: string | null;
+
+  // Bumped when the user clicks the manual refresh button. Not persisted.
+  refreshTick: number;
 
   loadTree: () => Promise<void>;
   applyTreeUpdate: (t: TreeResponse) => void;
@@ -42,20 +53,28 @@ interface UIState {
   toggleChecked: (key: string) => void;
   setChecked: (keys: string[], value: boolean) => void;
 
-  setTheme: (t: "light" | "dark") => void;
+  setTheme: (t: "light" | "dark") => Promise<void>;
 
   setSmoothing: (tag: string, v: number) => void;
-  toggleCollapsed: (tag: string) => void;
   setXlim: (tag: string, min: number | null, max: number | null) => void;
   setYlim: (tag: string, min: number | null, max: number | null) => void;
+  setLogScale: (tag: string, v: boolean) => void;
+  setRange: (tag: string, start: number | null, end: number | null) => void;
+  resetCurveSettings: (tag: string) => void;
+  toggleSection: (id: string) => void;
+  setExpandedTag: (tag: string | null) => void;
+  bumpRefresh: () => void;
 }
 
 const SETTINGS_KEY_CHECKED = "tree.checked";
 const SETTINGS_KEY_THEME = "theme";
 const SETTINGS_KEY_SMOOTHING = "curves.smoothing";
-const SETTINGS_KEY_COLLAPSED = "curves.collapsed";
 const SETTINGS_KEY_XLIM = "curves.xlim";
 const SETTINGS_KEY_YLIM = "curves.ylim";
+const SETTINGS_KEY_LOGSCALE = "curves.logscale";
+const SETTINGS_KEY_RANGE_START = "curves.rangeStart";
+const SETTINGS_KEY_RANGE_END = "curves.rangeEnd";
+const SETTINGS_KEY_SECTION_COLLAPSED = "curves.sectionCollapsed";
 
 function applyThemeToDocument(t: "light" | "dark") {
   document.documentElement.setAttribute("data-theme", t);
@@ -68,9 +87,14 @@ export const useUIStore = create<UIState>((set, get) => ({
   checkedKeys: new Set(),
   theme: "light",
   smoothing: {},
-  collapsed: {},
   xlim: {},
   ylim: {},
+  logScale: {},
+  rangeStart: {},
+  rangeEnd: {},
+  sectionCollapsed: {},
+  expandedTag: null,
+  refreshTick: 0,
 
   async loadTree() {
     const t = await fetchTree();
@@ -110,9 +134,12 @@ export const useUIStore = create<UIState>((set, get) => ({
       checkedKeys: checked,
       theme,
       smoothing: (s[SETTINGS_KEY_SMOOTHING] as Record<string, number>) ?? {},
-      collapsed: (s[SETTINGS_KEY_COLLAPSED] as Record<string, boolean>) ?? {},
       xlim: (s[SETTINGS_KEY_XLIM] as Record<string, [number | null, number | null]>) ?? {},
       ylim: (s[SETTINGS_KEY_YLIM] as Record<string, [number | null, number | null]>) ?? {},
+      logScale: (s[SETTINGS_KEY_LOGSCALE] as Record<string, boolean>) ?? {},
+      rangeStart: (s[SETTINGS_KEY_RANGE_START] as Record<string, number | null>) ?? {},
+      rangeEnd: (s[SETTINGS_KEY_RANGE_END] as Record<string, number | null>) ?? {},
+      sectionCollapsed: (s[SETTINGS_KEY_SECTION_COLLAPSED] as Record<string, boolean>) ?? {},
     });
   },
 
@@ -142,22 +169,16 @@ export const useUIStore = create<UIState>((set, get) => ({
     void saveGlobalSettings({ [SETTINGS_KEY_CHECKED]: Array.from(s) });
   },
 
-  setTheme(t) {
+  async setTheme(t) {
     applyThemeToDocument(t);
     set({ theme: t });
-    void saveGlobalSettings({ [SETTINGS_KEY_THEME]: t });
+    await saveGlobalSettings({ [SETTINGS_KEY_THEME]: t });
   },
 
   setSmoothing(tag, v) {
     const next = { ...get().smoothing, [tag]: v };
     set({ smoothing: next });
     void saveGlobalSettings({ [SETTINGS_KEY_SMOOTHING]: next });
-  },
-
-  toggleCollapsed(tag) {
-    const next = { ...get().collapsed, [tag]: !get().collapsed[tag] };
-    set({ collapsed: next });
-    void saveGlobalSettings({ [SETTINGS_KEY_COLLAPSED]: next });
   },
 
   setXlim(tag, min, max) {
@@ -170,6 +191,55 @@ export const useUIStore = create<UIState>((set, get) => ({
     const next = { ...get().ylim, [tag]: [min, max] as [number | null, number | null] };
     set({ ylim: next });
     void saveGlobalSettings({ [SETTINGS_KEY_YLIM]: next });
+  },
+
+  setLogScale(tag, v) {
+    const next = { ...get().logScale, [tag]: v };
+    set({ logScale: next });
+    void saveGlobalSettings({ [SETTINGS_KEY_LOGSCALE]: next });
+  },
+
+  setRange(tag, start, end) {
+    const nextStart = { ...get().rangeStart, [tag]: start };
+    const nextEnd = { ...get().rangeEnd, [tag]: end };
+    set({ rangeStart: nextStart, rangeEnd: nextEnd });
+    void saveGlobalSettings({
+      [SETTINGS_KEY_RANGE_START]: nextStart,
+      [SETTINGS_KEY_RANGE_END]: nextEnd,
+    });
+  },
+
+  resetCurveSettings(tag) {
+    const nextSm = { ...get().smoothing }; delete nextSm[tag];
+    const nextX = { ...get().xlim }; delete nextX[tag];
+    const nextY = { ...get().ylim }; delete nextY[tag];
+    const nextLog = { ...get().logScale }; delete nextLog[tag];
+    const nextRS = { ...get().rangeStart }; delete nextRS[tag];
+    const nextRE = { ...get().rangeEnd }; delete nextRE[tag];
+    set({ smoothing: nextSm, xlim: nextX, ylim: nextY, logScale: nextLog, rangeStart: nextRS, rangeEnd: nextRE });
+    void saveGlobalSettings({
+      [SETTINGS_KEY_SMOOTHING]: nextSm,
+      [SETTINGS_KEY_XLIM]: nextX,
+      [SETTINGS_KEY_YLIM]: nextY,
+      [SETTINGS_KEY_LOGSCALE]: nextLog,
+      [SETTINGS_KEY_RANGE_START]: nextRS,
+      [SETTINGS_KEY_RANGE_END]: nextRE,
+    });
+  },
+
+  toggleSection(id) {
+    const cur = get().sectionCollapsed;
+    const next = { ...cur, [id]: !cur[id] };
+    set({ sectionCollapsed: next });
+    void saveGlobalSettings({ [SETTINGS_KEY_SECTION_COLLAPSED]: next });
+  },
+
+  bumpRefresh() {
+    set({ refreshTick: get().refreshTick + 1 });
+  },
+
+  setExpandedTag(tag) {
+    set({ expandedTag: tag });
   },
 }));
 

@@ -82,6 +82,10 @@ export function parseModelArchitecture(source: string): ModuleNode {
 }
 
 function parseExpression(text: string): ParsedExpression {
+  // Strip PyTorch's ModuleList shorthand `N x ClassName(…)` so parsing sees just the class expression.
+  const repeated = text.match(/^\d+\s*[x×]\s+(.+)$/);
+  if (repeated) text = repeated[1];
+
   const openIndex = text.indexOf("(");
   if (openIndex === -1) {
     return { name: text.trim(), parameters: "", children: [] };

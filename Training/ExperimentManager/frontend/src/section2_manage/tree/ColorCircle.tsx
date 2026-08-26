@@ -34,6 +34,7 @@ export function ColorCircle({ color, onChange, size = 14 }: Props) {
         style={{ background: color, width: size, height: size }}
         onClick={(e) => {
           e.stopPropagation();
+          if (open && draft !== color) onChange(draft);
           setOpen((v) => !v);
         }}
         aria-label="Pick color"
@@ -47,16 +48,6 @@ export function ColorCircle({ color, onChange, size = 14 }: Props) {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
             />
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => {
-                onChange(draft);
-                setOpen(false);
-              }}
-            >
-              Apply
-            </button>
           </div>
         </div>
       )}

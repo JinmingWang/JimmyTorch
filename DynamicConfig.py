@@ -44,11 +44,11 @@ class DynamicConfig:
 
 
     def __str__(self):
-        args = {
-            k: v for k, v in self.__dict__.items()
-            if not k.startswith('_') and k != "cls"
-        }
-        return f"Config of {self.cls.__name__}: {args}"
+        lines = [f"-- {self.cls.__name__} Config --"]
+        for k, v in self.__dict__.items():
+            if not k.startswith('_') and k != "cls":
+                lines.append(f"{k}: {v}")
+        return "\n".join(lines)
 
 
     def __repr__(self):

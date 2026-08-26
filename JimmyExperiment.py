@@ -120,7 +120,7 @@ class JimmyExperiment:
             f.write(str(model))
 
         with open(os.path.join(self.constants['log_dir'], "comments.txt"), "w") as f:
-            f.write(f"{self.comments}\n{self.__str__()}")
+            f.write(self.comments)
 
         rprint(f"[blue]Save directory: {self.constants['save_dir']}.[/blue]")
         rprint(f"[blue]Log directory: {self.constants['log_dir']}.[/blue]")
@@ -133,7 +133,7 @@ class JimmyExperiment:
             model_name=model_name,
             run_name=self.dir_name,
         )
-        exp_logger.set_comments(f"{self.comments}\n{self.__str__()}")
+        exp_logger.set_comments(self.comments)
         exp_logger.set_model_arch(str(model))
         exp_logger.log_hparams({
             "dataset": str(self.dataset_cfg),

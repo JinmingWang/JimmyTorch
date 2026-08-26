@@ -1,9 +1,9 @@
 import type { ModuleNode } from "./model-parser";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-const CARD_WIDTH = 140;
+const CARD_WIDTH = 168;
 const CARD_HEIGHT = 62;
-const COLUMN_WIDTH = 184;
+const COLUMN_WIDTH = 212;
 const ROW_GAP = 74;
 const PADDING = 24;
 const PAIR_STAGGER_MS = 120;
@@ -110,12 +110,12 @@ export class ModelDiagram {
     card.append(element("rect", { width: String(CARD_WIDTH), height: String(CARD_HEIGHT), rx: "6" }));
     const labelClipId = `label-clip-${node.id.replaceAll(".", "-")}`;
     const clipPath = element("clipPath", { id: labelClipId });
-    clipPath.append(element("rect", { x: "10", y: "4", width: hasChildren ? "104" : "120", height: "56" }));
+    clipPath.append(element("rect", { x: "10", y: "4", width: hasChildren ? "132" : "148", height: "56" }));
     card.append(clipPath);
 
     const variableLabel = node.key ?? (depth === 0 ? "(root)" : "(anon)");
     card.append(textElement("text", { class: "card-key", x: "12", y: "18", "clip-path": `url(#${labelClipId})` }, variableLabel));
-    card.append(textElement("text", { class: `card-type${node.name.length > 14 ? " is-scrolling" : ""}`, x: "12", y: "38", "clip-path": `url(#${labelClipId})` }, node.name));
+    card.append(textElement("text", { class: "card-type", x: "12", y: "38", "clip-path": `url(#${labelClipId})` }, node.name));
     const meta = cardMeta(node);
     if (meta) {
       card.append(textElement("text", { class: "card-meta", x: "12", y: "54", "clip-path": `url(#${labelClipId})` }, meta));

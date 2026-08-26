@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { RunNode } from "../../api/rest";
 import { fetchFigureIndex, figureBlobUrl } from "../../api/rest";
+import { useUIStore } from "../../state/uiStore";
 
 interface Props {
   tag: string;
@@ -10,6 +11,7 @@ interface Props {
 
 export function FigureCard({ tag, node, onFullscreen }: Props) {
   const [step, setStep] = useState<number | null>(null);
+  const refreshTick = useUIStore((s) => s.refreshTick);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -18,7 +20,7 @@ export function FigureCard({ tag, node, onFullscreen }: Props) {
       if (idx.entries.length > 0) setStep(idx.entries[idx.entries.length - 1].step);
     })();
     return () => { cancelled = true; };
-  }, [tag, node]);
+  }, [tag, node, refreshTick]);
   return (
     <div className="figure-card" onClick={onFullscreen}>
       <div className="figure-card-header">
