@@ -2,7 +2,7 @@
 
 .manage-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 330px minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
@@ -76,7 +76,7 @@
 .manage-curves { padding: 0.75rem 1rem; }
 
 @media (max-width: 1200px) {
-  .manage-layout { grid-template-columns: 260px minmax(0, 1fr); }
+  .manage-layout { grid-template-columns: 286px minmax(0, 1fr); }
   .manage-layout.sidebar-collapsed { grid-template-columns: 40px minmax(0, 1fr); }
 }
 
@@ -185,20 +185,7 @@
 .tree-star-btn:hover { background: var(--bg-3); color: var(--yellow); }
 .tree-star-btn.on { color: var(--yellow); }
 
-.tree-spacer { flex: 0.5; }
-
-.tree-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-dim);
-  flex-shrink: 0;
-}
-.tree-status-dot.status-training { background: var(--green); box-shadow: 0 0 0 3px rgba(72,209,122,0.15); }
-.tree-status-dot.status-evaluating { background: var(--yellow); }
-.tree-status-dot.status-done { background: var(--cyan); }
-.tree-status-dot.status-error { background: var(--red); }
-.tree-status-dot.status-idle { background: var(--text-dim); }
+.tree-spacer { flex: 0; }
 
 /* ---- Color picker ---- */
 
@@ -228,6 +215,27 @@
 .color-picker-popover .react-colorful { width: 180px; height: 136px; }
 .color-picker-popover .react-colorful__saturation { height: 116px; }
 .color-picker-popover .react-colorful__hue { height: 14px; }
+
+.color-picker-presets {
+  display: grid;
+  grid-template-columns: repeat(6, 15px);
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+.color-picker-preset {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.color-picker-preset:hover,
+.color-picker-preset:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
 
 .color-picker-footer {
   margin-top: 0.35rem;
@@ -329,6 +337,60 @@
 .curve-section-lr     .curve-section-caret { color: var(--yellow); }
 .curve-section-other  .curve-section-caret { color: var(--text-dim); }
 .curve-section-figures .curve-section-caret { color: var(--lime); }
+.curve-section-notes .curve-section-caret { color: var(--cyan); }
+
+.notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.7rem;
+}
+.note-card {
+  min-height: 82px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.7rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.note-card:hover { border-color: var(--cyan); }
+.note-card.expanded { grid-column: 1 / -1; cursor: default; }
+.note-card-title { margin: 0; font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-card-title-input,
+.note-card-content {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+.note-card-title-row { display: flex; align-items: flex-start; gap: 0.55rem; margin-bottom: 0.55rem; }
+.note-card-title-input { min-width: 0; font-weight: 600; }
+.note-card-content { min-height: 180px; resize: vertical; line-height: 1.55; }
+.note-card-title-input:focus,
+.note-card-content:focus { outline: none; border-color: var(--cyan); }
+.note-add-card { display: grid; place-items: center; gap: 0.15rem; color: var(--text-dim); border-style: dashed; }
+.note-add-symbol { font-size: 1.35rem; line-height: 1; }
+.note-delete-btn {
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--red);
+  padding: 0.25rem 0.65rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+}
+.note-delete-btn:hover { background: color-mix(in srgb, var(--red) 12%, transparent); }
+.note-dialog-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(0, 0, 0, 0.35); }
+.note-dialog { width: min(360px, 100%); background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; box-shadow: 0 14px 35px rgba(0, 0, 0, 0.28); }
+.note-dialog h3 { margin: 0; font-size: 1rem; }
+.note-dialog p { margin: 0.5rem 0 1rem; color: var(--text-dim); }
+.note-dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 .curve-grid {
   display: grid;
@@ -406,6 +468,7 @@
   background: color-mix(in srgb, var(--bg-2) 60%, transparent);
   overflow: hidden;
 }
+[data-theme="light"] .curve-plot-wrap { background: #fff; }
 .curve-plot { position: absolute; inset: 0; }
 .curve-empty {
   position: absolute;
@@ -601,8 +664,16 @@
 
 .figure-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .figure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .figure-grid { grid-template-columns: 1fr; }
 }
 
 .figure-card {
@@ -623,7 +694,8 @@
   font-size: 0.75rem;
 }
 .figure-card-title { color: var(--text-strong); font-family: var(--font-mono); }
-.figure-card-sub { color: var(--text-dim); }
+.figure-card-sub { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--text-dim); }
+.figure-card-swatch { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 10px; }
 .figure-card-empty {
   color: var(--text-dim);
   text-align: center;

@@ -29,7 +29,6 @@ interface ContextMenuState { x: number; y: number; }
 const HIT_DISTANCE_PX = 8;
 
 export function CurveCard({ tag, runKeys }: Props) {
-  const tree = useUIStore((s) => s.tree);
   const smoothing = useUIStore((s) => s.smoothing[tag] ?? 0);
   const xlim = useUIStore((s) => s.xlim[tag] ?? [null, null]);
   const ylim = useUIStore((s) => s.ylim[tag] ?? [null, null]);
@@ -37,10 +36,10 @@ export function CurveCard({ tag, runKeys }: Props) {
   const rangeStartVal = useUIStore((s) => s.rangeStart[tag] ?? null);
   const rangeEndVal = useUIStore((s) => s.rangeEnd[tag] ?? null);
   const setRange = useUIStore((s) => s.setRange);
-  const resetCurveSettings = useUIStore((s) => s.resetCurveSettings);
   const expandedTag = useUIStore((s) => s.expandedTag);
   const setExpandedTag = useUIStore((s) => s.setExpandedTag);
   const refreshTick = useUIStore((s) => s.refreshTick);
+  const loadedTree = useUIStore((s) => s.loadedTree);
 
   const fullscreen = expandedTag === tag;
 
@@ -48,9 +47,11 @@ export function CurveCard({ tag, runKeys }: Props) {
 
   const runKeysKey = runKeys.join("|");
   useEffect(() => {
+    if (!loadedTree) return;
     let cancelled = false;
     async function loadAll() {
-      const nodes = runKeys.map((k) => findRun(tree, k)).filter(Boolean);
+      const currentTree = useUIStore.getState().tree;
+      const nodes = runKeys.map((k) => findRun(currentTree, k)).filter(Boolean);
       const results = await Promise.all(
         nodes.map(async (node) => {
           const resp = await fetchScalars(node!.dataset, node!.model, node!.run_name, tag, 20_000);
@@ -73,7 +74,9 @@ export function CurveCard({ tag, runKeys }: Props) {
     }
     void loadAll();
     return () => { cancelled = true; };
-  }, [tag, runKeysKey, tree, refreshTick]);
+    // `tree` excluded from deps: live tree updates during training must not reset zoom/pan.
+    // `loadedTree` included so the first fetch waits for the tree to actually load.
+  }, [tag, runKeysKey, refreshTick, loadedTree]);
 
   const displayed = useMemo(() => {
     return rawSeries.map((s) => ({ ...s, points: smoothSeries(s.points, smoothing) }));
@@ -82,10 +85,8 @@ export function CurveCard({ tag, runKeys }: Props) {
   const hasLive = displayed.some((s) => s.isLive);
 
   const doReset = useCallback(() => {
-    resetCurveSettings(tag);
-    // Also clear the interactive zoom/pan ref stored inside UPlotWrap.
     (window as unknown as { __curve_reset__?: Record<string, () => void> }).__curve_reset__?.[tag]?.();
-  }, [resetCurveSettings, tag]);
+  }, [tag]);
 
   return (
     <div className={["curve-card", fullscreen ? "expanded" : ""].filter(Boolean).join(" ")}>
@@ -93,7 +94,7 @@ export function CurveCard({ tag, runKeys }: Props) {
         <span className="curve-title">{tag}</span>
         {hasLive && <span className="curve-live-pill">● Training</span>}
         <span className="curve-header-actions">
-          <button type="button" className="curve-btn" onClick={doReset} title="Reset zoom, smoothing, ranges and log-scale" aria-label="Reset">⟲</button>
+          <button type="button" className="curve-btn" onClick={doReset} title="Reset zoom to fit data" aria-label="Reset zoom to fit data">⛶</button>
           <GearPopover tag={tag} />
           <button
             type="button"
@@ -156,6 +157,15 @@ function UPlotWrap({
   const scaleRef = useRef<{ x?: [number, number]; y?: [number, number] }>({});
   // Latest data-derived x/y ranges, used by Reset to snap back to the auto range.
   const dataRangeRef = useRef<{ x: [number, number]; y: [number, number] }>({ x: [0, 1], y: [0, 1] });
+  // True while a mouse button is held down over the plot; blocks auto-refit during live refreshes.
+  const mouseDownRef = useRef(false);
+  // True when the user has zoomed/panned interactively; blocks auto-refit until Reset.
+  const hasUserZoomedRef = useRef(false);
+  // Positive counter while WE are calling setScale; the setScale hook uses this to distinguish
+  // programmatic scale changes (ready hook, reset, auto-refit) from real user interactions.
+  const programmaticSetScaleRef = useRef(0);
+  // True immediately after a plot rebuild so the data-only effect can skip a redundant setData.
+  const justRebuiltRef = useRef(false);
 
   const [size, setSize] = useState({ w: 400, h: fullscreen ? 480 : 260 });
   const [cursorIdx, setCursorIdx] = useState<number | null>(null);
@@ -266,6 +276,18 @@ function UPlotWrap({
     return { data, opts, yRange, xRange };
   }, [series, size.w, size.h, xlim[0], xlim[1], ylim[0], ylim[1], logScale]);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Signature of everything that requires a full plot rebuild. Excludes point-values-only changes
+  // so live data updates go through setData without destroying the plot.
+  const optsStructKey = useMemo(
+    () =>
+      series.map((s) => `${s.runKey}|${s.color}|${s.isLive ? 1 : 0}`).join(";") +
+      `#${size.w},${size.h}` +
+      `#${xlim[0] ?? "a"},${xlim[1] ?? "a"}` +
+      `#${ylim[0] ?? "a"},${ylim[1] ?? "a"}` +
+      `#${logScale ? 1 : 0}`,
+    [series, size.w, size.h, xlim[0], xlim[1], ylim[0], ylim[1], logScale],  // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   // Ensure default range covers full data range on first data load OR after a reset that nulls it.
   const dataXMin = data && data[0] && (data[0] as number[]).length > 0 ? (data[0] as number[])[0] : null;
   const dataXMax = data && data[0] && (data[0] as number[]).length > 0 ? (data[0] as number[])[(data[0] as number[]).length - 1] : null;
@@ -322,19 +344,29 @@ function UPlotWrap({
       },
       hooks: {
         ready: [(u) => {
-          // Establish the initial range: prefer saved zoom, else user's gear-set limits, else computed data range.
-          const savedX = scaleRef.current.x;
-          const savedY = scaleRef.current.y;
-          if (savedX) {
-            u.setScale("x", { min: savedX[0], max: savedX[1] });
-          } else {
-            u.setScale("x", { min: xRange[0], max: xRange[1] });
-          }
-          if (savedY) {
-            u.setScale("y", { min: savedY[0], max: savedY[1] });
-          } else if (!logScale) {
-            u.setScale("y", { min: yRange[0], max: yRange[1] });
-          }
+          // uPlot's `ready` fires inside _commit(); calling setScale directly is a no-op
+          // because queuedCommit blocks the follow-up microtask. Queue our own microtask
+          // so setScale is applied after _commit returns.
+          const xHasExplicit = xlim[0] != null || xlim[1] != null;
+          const yHasExplicit = ylim[0] != null || ylim[1] != null;
+          const savedX = xHasExplicit ? undefined : scaleRef.current.x;
+          const savedY = yHasExplicit ? undefined : scaleRef.current.y;
+          if (xHasExplicit) scaleRef.current.x = undefined;
+          if (yHasExplicit) scaleRef.current.y = undefined;
+          queueMicrotask(() => {
+            programmaticSetScaleRef.current++;
+            if (savedX) {
+              u.setScale("x", { min: savedX[0], max: savedX[1] });
+            } else {
+              u.setScale("x", { min: xRange[0], max: xRange[1] });
+            }
+            if (savedY) {
+              u.setScale("y", { min: savedY[0], max: savedY[1] });
+            } else if (!logScale) {
+              u.setScale("y", { min: yRange[0], max: yRange[1] });
+            }
+            queueMicrotask(() => { programmaticSetScaleRef.current--; });
+          });
         }],
         draw: [(u) => drawRangeOverlay(u, rangeRef.current)],
         setCursor: [(u) => {
@@ -342,6 +374,9 @@ function UPlotWrap({
           setCursorIdx((prev) => prev === idx ? prev : idx);
         }],
         setScale: [(u, key) => {
+          // Scale changes not caused by our own code count as user interaction (drag-zoom
+          // via uPlot's built-in select). Alt-pan sets hasUserZoomedRef on mousedown separately.
+          if (programmaticSetScaleRef.current === 0) hasUserZoomedRef.current = true;
           if (key === "x" && u.scales.x.min != null && u.scales.x.max != null) {
             scaleRef.current.x = [u.scales.x.min as number, u.scales.x.max as number];
           } else if (key === "y" && u.scales.y.min != null && u.scales.y.max != null) {
@@ -350,8 +385,13 @@ function UPlotWrap({
         }],
       },
     };
+    // uPlot emits initial setScale hooks during construction. Treat those as setup,
+    // not a user zoom, so untouched live charts continue to follow appended points.
+    programmaticSetScaleRef.current++;
     const p = new uPlot(optsWithHooks, data, el);
+    programmaticSetScaleRef.current--;
     plotRef.current = p;
+    justRebuiltRef.current = true;
 
     const over = p.over;
 
@@ -385,6 +425,7 @@ function UPlotWrap({
 
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
+      mouseDownRef.current = true;
       if (e.altKey) {
         const x0 = p.scales.x.min as number | undefined;
         const x1 = p.scales.x.max as number | undefined;
@@ -392,6 +433,7 @@ function UPlotWrap({
         const y1 = p.scales.y.max as number | undefined;
         if (x0 == null || x1 == null || y0 == null || y1 == null) return;
         pan = { startClientX: e.clientX, startClientY: e.clientY, x0, x1, y0, y1 };
+        hasUserZoomedRef.current = true;
         over.style.cursor = "grabbing";
         e.preventDefault();
         return;
@@ -406,6 +448,7 @@ function UPlotWrap({
     };
 
     const onMouseUp = () => {
+      mouseDownRef.current = false;
       if (drag) {
         setRange(tag, rangeRef.current.start, rangeRef.current.end);
         drag = null;
@@ -434,9 +477,12 @@ function UPlotWrap({
     if (!w.__curve_reset__) w.__curve_reset__ = {};
     w.__curve_reset__[tag] = () => {
       scaleRef.current = {};
+      hasUserZoomedRef.current = false;
       const dr = dataRangeRef.current;
+      programmaticSetScaleRef.current++;
       p.setScale("x", { min: dr.x[0], max: dr.x[1] });
       p.setScale("y", { min: dr.y[0], max: dr.y[1] });
+      queueMicrotask(() => { programmaticSetScaleRef.current--; });
     };
 
     return () => {
@@ -449,7 +495,24 @@ function UPlotWrap({
       const w2 = window as unknown as { __curve_reset__?: Record<string, () => void> };
       if (w2.__curve_reset__) delete w2.__curve_reset__[tag];
     };
-  }, [opts, data]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [optsStructKey]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Data-only refresh: update the existing plot in place so zoom/pan/mid-drag survive.
+  // Auto-refits scales only when in default view AND the user is not touching the plot.
+  useEffect(() => {
+    const p = plotRef.current;
+    if (!p) return;
+    if (justRebuiltRef.current) { justRebuiltRef.current = false; return; }
+    const xHasExplicit = xlim[0] != null || xlim[1] != null;
+    const yHasExplicit = ylim[0] != null || ylim[1] != null;
+    const canRefit = !xHasExplicit && !yHasExplicit && !hasUserZoomedRef.current && !mouseDownRef.current;
+    programmaticSetScaleRef.current++;
+    p.setData(data, canRefit);
+    // uPlot skips its commit when setData receives false; rebuild the paths without
+    // changing scales so a preserved viewport still renders newly appended points.
+    if (!canRefit) p.redraw();
+    queueMicrotask(() => { programmaticSetScaleRef.current--; });
+  }, [data]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { plotRef.current?.redraw(false); }, [rangeStartVal, rangeEndVal]);
 
@@ -649,7 +712,7 @@ function formatY(n: number): string {
 
 function formatRatio(n: number): string {
   if (!isFinite(n)) return "—";
-  return n.toExponential(3);
+  return `${(n * 100).toFixed(4)}%`;
 }
 
 function cssVar(name: string, fallback: string): string {

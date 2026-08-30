@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { RunNode } from "../../api/rest";
 import { fetchFigureIndex, figureBlobUrl } from "../../api/rest";
-import { useUIStore } from "../../state/uiStore";
+import { effectiveColor, useUIStore } from "../../state/uiStore";
 
 interface Props {
   tag: string;
@@ -25,7 +25,10 @@ export function FigureCard({ tag, node, onFullscreen }: Props) {
     <div className="figure-card" onClick={onFullscreen}>
       <div className="figure-card-header">
         <span className="figure-card-title">{tag}</span>
-        <span className="figure-card-sub">{node.model}/{node.run_name}</span>
+        <span className="figure-card-sub">
+          <span className="figure-card-swatch" style={{ background: effectiveColor(node) }} />
+          {node.model}/{node.run_name}
+        </span>
       </div>
       {step !== null ? (
         <img

@@ -33,6 +33,7 @@ export function TreeView({ tree }: Props) {
   const liveRun = useLiveStore((s) => s.snapshot?.run);
   const liveStatus = useLiveStore((s) => s.snapshot?.status);
   const [query, setQuery] = useState("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const allRuns = useMemo(() => iterRuns(tree), [tree]);
 
@@ -46,6 +47,14 @@ export function TreeView({ tree }: Props) {
 
   const q = query.trim().toLowerCase();
   const matches = (s: string) => !q || s.toLowerCase().includes(q);
+  const toggleGroup = (groupKey: string) => {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      return next;
+    });
+  };
 
   return (
     <div className="tree-view">
@@ -71,6 +80,8 @@ export function TreeView({ tree }: Props) {
             ([m, runs]) => matches(m) || Object.keys(runs).some(matches),
           );
           if (!showDs) return null;
+          const datasetGroupKey = `dataset:${dataset}`;
+          const datasetCollapsed = !q && collapsedGroups.has(datasetGroupKey);
           return (
             <li key={dataset} className="tree-node tree-dataset">
               <NodeRow
@@ -78,8 +89,9 @@ export function TreeView({ tree }: Props) {
                 depth={0}
                 checkState={dsState}
                 onCheck={() => setChecked(dsRuns, dsState !== "checked")}
+                onToggle={() => toggleGroup(datasetGroupKey)}
               />
-              <ul>
+              {!datasetCollapsed && <ul>
                 {Object.entries(models).map(([model, runs]) => {
                   const mRuns = Object.keys(runs).map((r) =>
                     keyOf({ dataset, model, run_name: r }),
@@ -87,6 +99,8 @@ export function TreeView({ tree }: Props) {
                   const mState = computeGroupState(mRuns, checkedKeys);
                   const showM = !q || matches(dataset) || matches(model) || Object.keys(runs).some(matches);
                   if (!showM) return null;
+                  const modelGroupKey = `model:${dataset}\u0000${model}`;
+                  const modelCollapsed = !q && collapsedGroups.has(modelGroupKey);
                   return (
                     <li key={model} className="tree-node tree-model">
                       <NodeRow
@@ -94,8 +108,9 @@ export function TreeView({ tree }: Props) {
                         depth={1}
                         checkState={mState}
                         onCheck={() => setChecked(mRuns, mState !== "checked")}
+                        onToggle={() => toggleGroup(modelGroupKey)}
                       />
-                      <ul>
+                      {!modelCollapsed && <ul>
                         {Object.entries(runs).map(([runName, node]) => {
                           const key = keyOf({ dataset, model, run_name: runName });
                           if (q && !matches(dataset) && !matches(model) && !matches(runName)) return null;
@@ -124,10 +139,8 @@ export function TreeView({ tree }: Props) {
                                   }}
                                   onClick={(e) => e.stopPropagation()}
                                 />
-                                <span className={`tree-status-dot status-${node.status}`} title={node.status} />
                                 <span className="tree-label">
                                   {runName}
-                                  {node.starred && <span className="tree-star" title="Starred">★</span>}
                                 </span>
                                 <span className="tree-spacer" />
                                 <button
@@ -151,11 +164,11 @@ export function TreeView({ tree }: Props) {
                             </li>
                           );
                         })}
-                      </ul>
+                      </ul>}
                     </li>
                   );
                 })}
-              </ul>
+              </ul>}
             </li>
           );
         })}
@@ -169,14 +182,16 @@ function NodeRow({
   depth,
   checkState,
   onCheck,
+  onToggle,
 }: {
   label: string;
   depth: number;
   checkState: CheckState;
   onCheck: () => void;
+  onToggle: () => void;
 }) {
   return (
-    <div className="tree-row tree-row-group" style={{ paddingLeft: `${depth * 20}px` }}>
+    <div className="tree-row tree-row-group" style={{ paddingLeft: `${depth * 20}px` }} onClick={onToggle}>
       <input
         type="checkbox"
         checked={checkState === "checked"}
@@ -184,6 +199,7 @@ function NodeRow({
           if (el) el.indeterminate = checkState === "partial";
         }}
         onChange={onCheck}
+        onClick={(event) => event.stopPropagation()}
       />
       <span className="tree-label tree-label-group">{label}</span>
     </div>

@@ -7,6 +7,7 @@ import {
 } from "../api/rest";
 
 export interface RunKey { dataset: string; model: string; run_name: string; }
+export interface ExperimentNote { id: string; title: string; content: string; }
 
 export function keyOf(k: RunKey): string {
   return `${k.dataset}\u0000${k.model}\u0000${k.run_name}`;
@@ -33,6 +34,7 @@ interface UIState {
   logScale: Record<string, boolean>;
   rangeStart: Record<string, number | null>;
   rangeEnd: Record<string, number | null>;
+  notes: ExperimentNote[];
 
   // Section collapse state, keyed by section id (e.g. 'curves-train'). Persisted.
   sectionCollapsed: Record<string, boolean>;
@@ -60,6 +62,7 @@ interface UIState {
   setYlim: (tag: string, min: number | null, max: number | null) => void;
   setLogScale: (tag: string, v: boolean) => void;
   setRange: (tag: string, start: number | null, end: number | null) => void;
+  setNotes: (notes: ExperimentNote[]) => void;
   resetCurveSettings: (tag: string) => void;
   toggleSection: (id: string) => void;
   setExpandedTag: (tag: string | null) => void;
@@ -75,6 +78,8 @@ const SETTINGS_KEY_LOGSCALE = "curves.logscale";
 const SETTINGS_KEY_RANGE_START = "curves.rangeStart";
 const SETTINGS_KEY_RANGE_END = "curves.rangeEnd";
 const SETTINGS_KEY_SECTION_COLLAPSED = "curves.sectionCollapsed";
+const SETTINGS_KEY_NOTES = "notes.cards";
+const SETTINGS_KEY_NOTES_CONTENT = "notes.content";
 
 function applyThemeToDocument(t: "light" | "dark") {
   document.documentElement.setAttribute("data-theme", t);
@@ -92,6 +97,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   logScale: {},
   rangeStart: {},
   rangeEnd: {},
+  notes: [],
   sectionCollapsed: {},
   expandedTag: null,
   refreshTick: 0,
@@ -139,6 +145,11 @@ export const useUIStore = create<UIState>((set, get) => ({
       logScale: (s[SETTINGS_KEY_LOGSCALE] as Record<string, boolean>) ?? {},
       rangeStart: (s[SETTINGS_KEY_RANGE_START] as Record<string, number | null>) ?? {},
       rangeEnd: (s[SETTINGS_KEY_RANGE_END] as Record<string, number | null>) ?? {},
+      notes: Array.isArray(s[SETTINGS_KEY_NOTES])
+        ? (s[SETTINGS_KEY_NOTES] as ExperimentNote[])
+        : typeof s[SETTINGS_KEY_NOTES_CONTENT] === "string" && s[SETTINGS_KEY_NOTES_CONTENT].trim()
+          ? [{ id: "legacy-notes", title: "Notes", content: s[SETTINGS_KEY_NOTES_CONTENT] }]
+          : [],
       sectionCollapsed: (s[SETTINGS_KEY_SECTION_COLLAPSED] as Record<string, boolean>) ?? {},
     });
   },
@@ -209,6 +220,11 @@ export const useUIStore = create<UIState>((set, get) => ({
     });
   },
 
+  setNotes(notes) {
+    set({ notes });
+    void saveGlobalSettings({ [SETTINGS_KEY_NOTES]: notes });
+  },
+
   resetCurveSettings(tag) {
     const nextSm = { ...get().smoothing }; delete nextSm[tag];
     const nextX = { ...get().xlim }; delete nextX[tag];
@@ -260,16 +276,16 @@ export function findRun(tree: TreeResponse | null, key: string): RunNode | null 
   return tree.datasets[k.dataset]?.[k.model]?.[k.run_name] ?? null;
 }
 
-const DEFAULT_COLORS = [
-  "#55ded0", "#d9ef67", "#ff886c", "#ffd166", "#8db9df", "#d8a5d9",
-  "#a6c98f", "#f3c96b", "#ea9a86", "#94d9c7", "#c78ce9", "#e57c62",
+export const RUN_COLORS = [
+  "#0072b2", "#d55e00", "#009e73", "#cc79a7", "#e69f00", "#5e3c99",
+  "#17becf", "#e7298a", "#66a61e", "#a6761d", "#1f78b4", "#e31a1c",
 ];
 
 /** Deterministic default color for a run key when the user hasn't picked one. */
 export function defaultColorForKey(key: string): string {
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-  return DEFAULT_COLORS[h % DEFAULT_COLORS.length];
+  return RUN_COLORS[h % RUN_COLORS.length];
 }
 
 export function effectiveColor(node: RunNode): string {

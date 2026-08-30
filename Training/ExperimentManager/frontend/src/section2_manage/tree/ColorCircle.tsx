@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
+import { RUN_COLORS } from "../../state/uiStore";
 
 interface Props {
   color: string;
@@ -42,6 +43,22 @@ export function ColorCircle({ color, onChange, size = 14 }: Props) {
       {open && (
         <div className="color-picker-popover" onMouseDown={(e) => e.stopPropagation()}>
           <HexColorPicker color={draft} onChange={setDraft} />
+          <div className="color-picker-presets" aria-label="Preset colors">
+            {RUN_COLORS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className="color-picker-preset"
+                style={{ background: preset }}
+                title={`Use ${preset}`}
+                aria-label={`Use ${preset}`}
+                onClick={() => {
+                  setDraft(preset);
+                  onChange(preset);
+                }}
+              />
+            ))}
+          </div>
           <div className="color-picker-footer">
             <input
               type="text"
