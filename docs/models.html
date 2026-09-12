@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Implement JimmyModel classes, step contracts, optimization, and reusable modules."><title>Models · JimmyTorch</title><link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/css/site.css"><script src="assets/js/site.js" defer></script></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a><div class="header-actions"><a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a><button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button><button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button></div></div></header>
+  <div class="docs-shell"><aside class="sidebar" id="docs-navigation"><nav aria-label="Documentation"><p class="sidebar-label">Start here</p><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><p class="sidebar-label">Core workflow</p><a href="datasets.html">Datasets</a><a href="models.html" aria-current="page">Models</a><a href="training.html">Training &amp; evaluation</a><a href="experiment-manager.html">Experiment Manager</a><p class="sidebar-label">Reference</p><a href="utilities.html">Specialized utilities</a><a href="api.html">API reference</a></nav></aside>
+    <main class="docs-main" id="content">
+      <header class="page-head"><p class="eyebrow">Core workflow / model</p><h1>Model development</h1><p class="lede"><code>JimmyModel</code> keeps architecture, optimization, and phase-specific step logic together while exposing named losses and outputs to the trainer.</p></header>
+
+      <section aria-labelledby="contract"><h2 id="contract">The step contract</h2>
+        <div class="table-wrap"><table><thead><tr><th>Method</th><th>Responsibility</th><th>Return value</th></tr></thead><tbody>
+          <tr><td><code>forward(...)</code></td><td>Pure network computation.</td><td>Model-defined tensors.</td></tr>
+          <tr><td><code>trainStep(batch)</code></td><td>Forward pass, loss calculation, and <code>backwardOptimize</code>.</td><td><code>(loss_dict, output_dict)</code></td></tr>
+          <tr><td><code>evalStep(batch)</code></td><td>Validation computation and optional figure output.</td><td><code>(loss_dict, output_dict)</code></td></tr>
+          <tr><td><code>testStep(batch)</code></td><td>Test behavior; the base implementation delegates to <code>evalStep</code>.</td><td><code>(loss_dict, output_dict)</code></td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>Main loss keys are operational contracts.</strong><code>JimmyTrainer</code> schedules from <code>Train/Main</code> and selects the best checkpoint from <code>Eval/Main</code>. Both must be present in the corresponding declared name lists and returned dictionaries.</div>
+      </section>
+
+      <section class="section" aria-labelledby="implementation"><h2 id="implementation">Minimal implementation</h2>
+        <pre><code>import torch
+import torch.nn as nn
+from Models import JimmyModel, getAutoCast
+
+
+class Regressor(JimmyModel):
+    def __init__(self, width: int = 64, **model_kwargs):
+        super().__init__(**model_kwargs)
+        self.train_loss_names = ["Train/Main"]
+        self.eval_loss_names = ["Eval/Main"]
+        self.network = nn.Sequential(nn.Linear(8, width), nn.GELU(), nn.Linear(width, 1))
+        self.loss = nn.MSELoss()
+
+    def forward(self, features):
+        return self.network(features)
+
+    def trainStep(self, batch):
+        with getAutoCast(batch["features"], self.mixed_precision):
+            prediction = self(batch["features"])
+            loss = self.loss(prediction, batch["labels"])
+        self.backwardOptimize(loss)
+        return {"Train/Main": loss.item()}, {"prediction": prediction.detach()}
+
+    def evalStep(self, batch):
+        with torch.no_grad():
+            prediction = self(batch["features"])
+            loss = self.loss(prediction, batch["labels"])
+        return {"Eval/Main": loss.item()}, {"prediction": prediction.detach()}</code></pre>
+        <p>Call <code>initialize()</code> after moving the model to its device. This creates the optimizer and, when requested, compiles the bound <code>forward</code> method.</p>
+      </section>
+
+      <section class="section" aria-labelledby="optimization"><h2 id="optimization">Optimization controls</h2>
+        <div class="card-grid">
+          <article class="card"><h3>Mixed precision</h3><p>Set <code>mixed_precision=True</code> and wrap computation with <code>getAutoCast</code>. <code>backwardOptimize</code> owns gradient scaling.</p></article>
+          <article class="card"><h3>Gradient clipping</h3><p>Set <code>clip_grad</code> above zero to clip the model's gradient norm after unscaling.</p></article>
+          <article class="card"><h3>Compilation</h3><p>Set <code>compile_model=True</code> to request module compilation through <code>self.compile()</code> during initialization.</p></article>
+          <article class="card"><h3>Optimizer access</h3><p>The configured optimizer is created by <code>initialize()</code>; <code>lr</code> returns the first parameter group's learning rate.</p></article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="checkpoints"><h2 id="checkpoints">Checkpoint behavior</h2>
+        <p><code>saveTo(path)</code> writes the model state dictionary. <code>loadFrom(path)</code> loads compatible parameters, reports missing or unexpected keys, and skips size-mismatched tensors rather than forcing them into the model.</p>
+        <div class="callout warning"><strong>A partial load is still a partial load.</strong>Read the reported key differences and confirm that skipped tensors are intentional before resuming research.</div>
+      </section>
+
+      <section class="section" aria-labelledby="building-blocks"><h2 id="building-blocks">Reusable building blocks</h2>
+        <div class="table-wrap"><table><thead><tr><th>Module</th><th>Contents</th></tr></thead><tbody>
+          <tr><td><code>Models/Basics.py</code></td><td>Generated Conv/Norm/activation blocks, <code>FCLayers</code>, positional encoders, and 1D/2D patch makers.</td></tr>
+          <tr><td><code>Models/Attentions.py</code></td><td><code>SELayer1D</code>, <code>SELayer2D</code>, <code>MHSA</code>, and cross-attention module <code>MHCA</code>.</td></tr>
+          <tr><td><code>Models/ModelUtils.py</code></td><td>Shape adapters, <code>SequentialMultiIO</code>, functional <code>Rearrange</code>, <code>ResWrapper</code>, and <code>makeItResidual</code>.</td></tr>
+          <tr><td><code>Models/LossFunctions.py</code></td><td><code>MaskedLoss</code>, <code>SequentialLossWithLength</code>, <code>RMSE</code>, and <code>KLDLoss</code>.</td></tr>
+          <tr><td><code>Models/CostTest.py</code></td><td>CUDA timing and FLOP helpers; FLOP calculation requires the optional <code>calflops</code> package.</td></tr>
+        </tbody></table></div>
+        <p>See the <a href="api.html">API reference</a> for signatures and the <a href="utilities.html">specialized utilities</a> for DDPM and DDIM.</p>
+      </section>
+    </main>
+  </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="training.html">Next: Training &amp; evaluation →</a></span></footer>
+</body></html>

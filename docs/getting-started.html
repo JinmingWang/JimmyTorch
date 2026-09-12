@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Set up JimmyTorch and run the included MNIST experiment.">
+  <title>Getting started · JimmyTorch</title>
+  <link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/css/site.css"><script src="assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a><div class="header-actions"><a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a><button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button><button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button></div></div></header>
+  <div class="docs-shell">
+    <aside class="sidebar" id="docs-navigation"><nav aria-label="Documentation"><p class="sidebar-label">Start here</p><a href="index.html">Overview</a><a href="getting-started.html" aria-current="page">Getting started</a><p class="sidebar-label">Core workflow</p><a href="datasets.html">Datasets</a><a href="models.html">Models</a><a href="training.html">Training &amp; evaluation</a><a href="experiment-manager.html">Experiment Manager</a><p class="sidebar-label">Reference</p><a href="utilities.html">Specialized utilities</a><a href="api.html">API reference</a></nav></aside>
+    <main class="docs-main" id="content">
+      <header class="page-head"><p class="eyebrow">Start here</p><h1>Getting started</h1><p class="lede">Run the included MNIST example, understand what it creates, and then replace its dataset and model with your own.</p></header>
+
+      <section aria-labelledby="requirements"><h2 id="requirements">Requirements</h2>
+        <p>JimmyTorch is currently used directly from its source checkout; this repository does not define a packaged release or pinned dependency manifest. Use a Python environment with PyTorch and install the modules required by the feature set you use.</p>
+        <div class="table-wrap"><table><thead><tr><th>Area</th><th>Runtime modules</th></tr></thead><tbody>
+          <tr><td>Repository imports</td><td><code>torch</code>, <code>torchvision</code>, <code>pandas</code>, <code>matplotlib</code>, <code>rich</code>, <code>jaxtyping</code>, <code>tqdm</code>, <code>numpy</code>, <code>numpy-stl</code>, <code>plotly</code>, <code>calflops</code>, <code>aiohttp</code></td></tr>
+          <tr><td>Optional integrations</td><td><code>tensorboard</code> when enabled; <code>psutil</code> and <code>pynvml</code> for monitor system metrics</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>Install PyTorch for your platform first.</strong>CUDA wheels and accelerator support vary by operating system and hardware; follow the official PyTorch installation selector rather than copying an environment-specific command.</div>
+        <p>The current umbrella imports expose 3D and cost-analysis modules eagerly, so <code>numpy-stl</code>, <code>plotly</code>, and <code>calflops</code> are required even if the first experiment does not call those helpers.</p>
+        <pre><code>python -m pip install torchvision pandas matplotlib rich jaxtyping tqdm \
+  numpy numpy-stl plotly calflops aiohttp</code></pre>
+      </section>
+
+      <section class="section" aria-labelledby="checkout"><h2 id="checkout">1. Get the source</h2>
+        <pre><code>git clone https://github.com/JinmingWang/JimmyTorch.git
+cd JimmyTorch</code></pre>
+        <p>Run entry scripts from the repository root so imports such as <code>from Models import ...</code> and the default <code>Runs/</code> path resolve correctly.</p>
+      </section>
+
+      <section class="section" aria-labelledby="monitor"><h2 id="monitor">2. Start the optional monitor</h2>
+        <p>Start one standalone service for the working directory. It serves the dashboard and reads the run tree under <code>./Runs</code>.</p>
+        <pre><code>python -m Training.ExperimentManager</code></pre>
+        <p>Open <a href="http://127.0.0.1:9000">http://127.0.0.1:9000</a>. To choose another run directory or starting port:</p>
+        <pre><code>python -m Training.ExperimentManager \
+  --runs-root /path/to/project/Runs \
+  --host 127.0.0.1 \
+  --port 9000</code></pre>
+        <div class="callout"><strong>The service is optional.</strong>Training writes its SQLite record locally and continues if the HTTP service is absent or temporarily unreachable.</div>
+      </section>
+
+      <section class="section" aria-labelledby="run"><h2 id="run">3. Run the included experiment</h2>
+        <pre><code>python main.py</code></pre>
+        <p>The sample downloads MNIST through <code>torchvision</code>, trains <code>SampleCNN</code>, then evaluates the best checkpoint. It therefore needs network access on its first run and may use the detected CUDA device.</p>
+      </section>
+
+      <section class="section" aria-labelledby="output"><h2 id="output">4. Inspect the run</h2>
+        <pre><code class="file-tree">Runs/
+└── MNISTSampleDataset/
+    └── SampleCNN/
+        └── sample_cnn_baseline/
+            ├── best.pth
+            ├── last.pth
+            ├── comments.txt
+            ├── model_arch.txt
+            └── status_and_log.sqlite</code></pre>
+        <p>TensorBoard event files are added only when <code>enable_tensorboard</code> is true. The SQLite file is the Experiment Manager's durable record for metadata, scalars, and figures.</p>
+      </section>
+
+      <section class="section" aria-labelledby="next"><h2 id="next">Where to go next</h2>
+        <div class="card-grid">
+          <a class="card link-card" href="datasets.html"><h3>Define your data <span class="arrow">→</span></h3><p>Implement the batch dictionary and split behavior.</p></a>
+          <a class="card link-card" href="models.html"><h3>Define your model <span class="arrow">→</span></h3><p>Implement forward, training, evaluation, and test steps.</p></a>
+          <a class="card link-card" href="training.html"><h3>Configure a run <span class="arrow">→</span></h3><p>Wire components together with <code>JimmyExperiment</code>.</p></a>
+          <a class="card link-card" href="experiment-manager.html"><h3>Understand monitoring <span class="arrow">→</span></h3><p>Learn the server, client, and persistence boundaries.</p></a>
+        </div>
+      </section>
+    </main>
+  </div>
+  <footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="index.html">Back to overview</a></span></footer>
+</body>
+</html>

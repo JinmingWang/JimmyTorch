@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="JimmyTorch documentation: a compact PyTorch research framework for datasets, models, training, and experiment management.">
+  <title>JimmyTorch Documentation</title>
+  <link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <script src="assets/js/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a>
+      <div class="header-actions">
+        <a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a>
+        <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button>
+        <button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button>
+      </div>
+    </div>
+  </header>
+  <div class="docs-shell">
+    <aside class="sidebar" id="docs-navigation">
+      <nav aria-label="Documentation">
+        <p class="sidebar-label">Start here</p>
+        <a href="index.html" aria-current="page">Overview</a>
+        <a href="getting-started.html">Getting started</a>
+        <p class="sidebar-label">Core workflow</p>
+        <a href="datasets.html">Datasets</a>
+        <a href="models.html">Models</a>
+        <a href="training.html">Training &amp; evaluation</a>
+        <a href="experiment-manager.html">Experiment Manager</a>
+        <p class="sidebar-label">Reference</p>
+        <a href="utilities.html">Specialized utilities</a>
+        <a href="api.html">API reference</a>
+      </nav>
+    </aside>
+    <main class="docs-main" id="content">
+      <section class="hero">
+        <p class="eyebrow">PyTorch research infrastructure</p>
+        <h1>Small framework. Complete experiment loop.</h1>
+        <p class="lede">JimmyTorch connects GPU-first datasets, explicit model steps, configuration-as-code, reproducible training, and a durable experiment dashboard.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="getting-started.html">Build your first run</a>
+          <a class="button" href="experiment-manager.html">Explore the monitor</a>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="why">
+        <p class="eyebrow">Why JimmyTorch</p>
+        <h2 id="why">A research loop with deliberate boundaries</h2>
+        <div class="feature-grid three">
+          <article class="feature-card"><span class="number">01</span><h3>Dictionary contracts</h3><p>Datasets expose named tensors; models select what they consume and return named losses and outputs.</p></article>
+          <article class="feature-card"><span class="number">02</span><h3>Configuration as code</h3><p><code>DynamicConfig</code> delays construction so experiments can adjust model, data, optimizer, and scheduler settings in one place.</p></article>
+          <article class="feature-card"><span class="number">03</span><h3>Durable observations</h3><p>Checkpoints, metadata, metrics, and figures live with each run while the optional dashboard compares them.</p></article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="architecture">
+        <p class="eyebrow">System map</p>
+        <h2 id="architecture">From a batch to an experiment record</h2>
+        <div class="diagram"><img src="assets/images/architecture.svg" alt="JimmyTorch data, model, trainer, experiment configuration, and monitoring architecture"></div>
+        <p>The core training loop does not depend on the browser service. <code>ExperimentLogger</code> writes locally to SQLite, while <code>ExperimentManagerClient</code> reports live state on a best-effort background thread.</p>
+      </section>
+
+      <section class="section" aria-labelledby="areas">
+        <p class="eyebrow">Documentation map</p>
+        <h2 id="areas">Go directly to the work you are doing</h2>
+        <div class="card-grid">
+          <a class="card link-card" href="datasets.html"><span class="tag">DATA</span><h3>Implement a dataset <span class="arrow">→</span></h3><p>Batch indexing, split conventions, GPU-first loading, and queued preprocessing.</p></a>
+          <a class="card link-card" href="models.html"><span class="tag">MODEL</span><h3>Implement a model <span class="arrow">→</span></h3><p>Step contracts, mixed precision, reusable layers, losses, and checkpoints.</p></a>
+          <a class="card link-card" href="training.html"><span class="tag">RUN</span><h3>Configure an experiment <span class="arrow">→</span></h3><p>Dynamic configuration, schedulers, evaluation cadence, and saved artifacts.</p></a>
+          <a class="card link-card" href="experiment-manager.html"><span class="tag">OBSERVE</span><h3>Operate the Experiment Manager <span class="arrow">→</span></h3><p>Start the service, inspect live state, compare runs, and understand persistence.</p></a>
+          <a class="card link-card" href="utilities.html"><span class="tag">EXTEND</span><h3>Use specialized utilities <span class="arrow">→</span></h3><p>Diffusion, trajectories, sequences, mesh slicing, projection, and signed-distance images.</p></a>
+          <a class="card link-card" href="api.html"><span class="tag">LOOK UP</span><h3>Scan the public API <span class="arrow">→</span></h3><p>A source-aligned index of the framework's principal classes and functions.</p></a>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="manager-preview">
+        <p class="eyebrow">Experiment Manager</p>
+        <h2 id="manager-preview">Live training and historical comparison, together</h2>
+        <div class="screenshot"><img src="assets/images/experiment-manager.png" alt="JimmyTorch Experiment Manager showing sanitized live progress and experiment comparison data"></div>
+        <p class="caption">The dashboard combines live progress, system utilization, run selection, scalar comparisons, figures, notes, and architecture views.</p>
+      </section>
+
+      <section class="section" aria-labelledby="principles">
+        <p class="eyebrow">Design principles</p>
+        <h2 id="principles">Opinionated where experiments benefit</h2>
+        <ul class="pill-row" aria-label="JimmyTorch design principles">
+          <li class="pill">named data</li><li class="pill">explicit steps</li><li class="pill">local-first logs</li><li class="pill">reproducible runs</li><li class="pill">optional monitoring</li><li class="pill">source-level extensibility</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="site-footer"><span>JimmyTorch documentation</span><span>Licensed under Apache-2.0</span></footer>
+</body>
+</html>

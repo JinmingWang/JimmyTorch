@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="JimmyTorch diffusion, trajectory, sequence, and 3D utilities."><title>Specialized utilities · JimmyTorch</title><link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/css/site.css"><script src="assets/js/site.js" defer></script></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a><div class="header-actions"><a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a><button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button><button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button></div></div></header>
+  <div class="docs-shell"><aside class="sidebar" id="docs-navigation"><nav aria-label="Documentation"><p class="sidebar-label">Start here</p><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><p class="sidebar-label">Core workflow</p><a href="datasets.html">Datasets</a><a href="models.html">Models</a><a href="training.html">Training &amp; evaluation</a><a href="experiment-manager.html">Experiment Manager</a><p class="sidebar-label">Reference</p><a href="utilities.html" aria-current="page">Specialized utilities</a><a href="api.html">API reference</a></nav></aside>
+    <main class="docs-main" id="content">
+      <header class="page-head"><p class="eyebrow">Reference / specialized modules</p><h1>Specialized utilities</h1><p class="lede">JimmyTorch includes focused helpers for diffusion processes, geospatial trajectories, general sequences, and sliced 3D geometry.</p></header>
+
+      <section aria-labelledby="diffusion"><h2 id="diffusion">DDPM and DDIM</h2>
+        <p><code>DiffusionModels</code> exports two schedule/process objects. Both support linear, quadratic, and logarithmic beta schedules; both accept predictions of <code>x0</code>, noise <code>epsilon</code>, or velocity <code>v</code> during denoising.</p>
+        <pre><code>import torch
+from DiffusionModels import DDIM
+
+process = DDIM(
+    min_beta=1e-4,
+    max_beta=2e-3,
+    max_diffusion_step=100,
+    device="cpu",
+    scale_mode="linear",
+    skip_step=5,
+)
+
+x0 = torch.randn(4, 32)
+t = torch.tensor([10, 20, 30, 40])
+noise = torch.randn_like(x0)
+xt = process.diffuse(x0, t, noise)
+velocity = process.computeVelocity(x0, noise, t)</code></pre>
+        <div class="table-wrap"><table><thead><tr><th>Method</th><th>DDPM</th><th>DDIM</th></tr></thead><tbody>
+          <tr><td><code>diffuseStep</code> / <code>diffuse</code></td><td>Yes</td><td>Yes</td></tr>
+          <tr><td><code>denoiseStep</code> / <code>denoise</code></td><td>Stochastic reverse process</td><td>Deterministic skip-step process</td></tr>
+          <tr><td><code>computeVelocity</code></td><td>Yes</td><td>Yes</td></tr>
+          <tr><td><code>extractNoise</code> / <code>extractVelocity</code></td><td>—</td><td>Yes</td></tr>
+          <tr><td><code>combineNoise</code></td><td>Yes</td><td>—</td></tr>
+        </tbody></table></div>
+        <p>The callable passed to <code>denoise</code> receives <code>(x_t, t, **kwargs)</code> and must return a three-item tuple <code>(x0_pred, epsilon_pred, v_pred)</code> with one meaningful prediction.</p>
+      </section>
+
+      <section class="section" aria-labelledby="trajectories"><h2 id="trajectories">Trajectory utilities</h2>
+        <p>Trajectory helpers operate on a single <code>(L, 2)</code> tensor or batched <code>(B, L, 2)</code> tensors where documented. The two coordinates are longitude and latitude for geographic distance functions.</p>
+        <div class="table-wrap"><table><thead><tr><th>Group</th><th>Functions</th><th>Purpose</th></tr></thead><tbody>
+          <tr><td>Coordinates</td><td><code>getLng</code>, <code>getLat</code>, <code>computeDistance</code></td><td>Extract axes and sum pairwise coordinate-space distances.</td></tr>
+          <tr><td>Length</td><td><code>cropPadTraj</code>, <code>interpTraj</code></td><td>Crop/pad a single trajectory or interpolate one/batched trajectories.</td></tr>
+          <tr><td>Transforms</td><td><code>flipTrajWestEast</code>, <code>flipTrajNorthSouth</code>, <code>centerTraj</code>, <code>zScoreTraj</code>, <code>minMaxTraj</code>, <code>rotateTraj</code></td><td>Geometric augmentation and normalization.</td></tr>
+          <tr><td>Evaluation</td><td><code>geometricDistance</code>, <code>computeJSD</code></td><td>Haversine distance in metres and distribution-level Jensen–Shannon divergence.</td></tr>
+          <tr><td>Plotting</td><td><code>plotTraj</code></td><td>Render one or many trajectories on a matplotlib axes.</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>Coordinate-space and geographic distance differ.</strong><code>computeDistance</code> sums Euclidean segment lengths in the tensor's coordinate units. Use <code>geometricDistance</code> for longitude/latitude distance in metres.</div>
+      </section>
+
+      <section class="section" aria-labelledby="sequences"><h2 id="sequences">General sequences</h2>
+        <p><code>cropPadSequence(seq, target_len, pad_value=0.0)</code> crops or pads along the first dimension and preserves the remaining feature dimensions. Unlike <code>cropPadTraj</code>, it is not restricted to two-coordinate trajectories.</p>
+      </section>
+
+      <section class="section" aria-labelledby="geometry"><h2 id="geometry">3D mesh and slicing pipeline</h2>
+        <p>The utilities in <code>Datasets.ThreeDUtils</code> form a geometry preprocessing pipeline:</p>
+        <div class="feature-grid three">
+          <article class="feature-card"><span class="number">01</span><h3>Load and normalize</h3><p><code>loadSTL</code>, <code>loadOFF</code>, <code>loadOBJ</code>, or ASCII-only <code>loadPLY</code>, followed by <code>normalizeMesh</code>.</p></article>
+          <article class="feature-card"><span class="number">02</span><h3>Slice and project</h3><p><code>meshSlicing</code> or <code>meshSlicing_vectorized</code> intersects triangle meshes with planes; projection helpers map intersections into 2D.</p></article>
+          <article class="feature-card"><span class="number">03</span><h3>Rasterize or inspect</h3><p><code>computeSDFImages</code> creates signed-distance grids; <code>build_figure</code> produces an interactive Plotly view.</p></article>
+        </div>
+<pre><code>import torch
+from Datasets.ThreeDUtils import (
+    loadOBJ, normalizeMesh, meshSlicing,
+    buildPlaneBasis, projectPointsTo2D,
+)
+
+triangles = loadOBJ("model.obj")
+normalized, center, scale = normalizeMesh(triangles)
+plane_axis = (0.0, 0.0, 1.0)
+triangle_ids, slice_points, plane_centers, segments = meshSlicing(
+    normalized,
+    plane_interval=0.05,
+    plane_axis=plane_axis,
+)
+basis = buildPlaneBasis(torch.tensor(plane_axis, device=normalized.device))</code></pre>
+        <ul>
+          <li>Mesh loaders return triangle vertices with shape <code>(faces, 3, 3)</code> as float32 tensors on their selected device.</li>
+          <li>OFF/OBJ polygon faces are fan-triangulated; PLY support is ASCII only.</li>
+          <li><code>computeSDFImages</code> expects padded 2D segment tensors with explicit valid counts and always returns its result on CPU.</li>
+          <li>The SDF rasterizer chunks slices and pixel rows to bound accelerator memory.</li>
+        </ul>
+      </section>
+
+      <section class="section" aria-labelledby="optional"><h2 id="optional">Optional dependencies</h2><p>STL loading requires <code>numpy-stl</code>; 3D interactive figures require <code>plotly</code>; FLOP calculation requires <code>calflops</code>; TensorBoard logging requires TensorBoard. Imports from umbrella packages may expose optional modules, so install the dependencies used by your chosen workflow.</p></section>
+    </main>
+  </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="api.html">Next: API reference →</a></span></footer>
+</body></html>

@@ -1,0 +1,135 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(84, 224, 177, 0.12), transparent 30rem),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 0.75rem;
+  left: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #04100c;
+  font-weight: 750;
+  transform: translateY(-180%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+a {
+  color: var(--accent-strong);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 0.2rem;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 2.2rem 0 0.7rem;
+  line-height: 1.16;
+  letter-spacing: -0.025em;
+}
+
+h1 {
+  margin-top: 0;
+  font-size: clamp(2.35rem, 7vw, 4.8rem);
+}
+
+h2 {
+  padding-top: 0.3rem;
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+}
+
+h3 {
+  font-size: 1.22rem;
+}
+
+p,
+ul,
+ol {
+  max-width: 72ch;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 3rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+th,
+td {
+  padding: 0.78rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--text);
+  background: var(--surface-soft);
+}
+
+tbody tr:hover {
+  background: var(--accent-soft);
+}
+
+code,
+kbd {
+  font-family: var(--font-mono);
+}
+
+code:not(pre code) {
+  padding: 0.13rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--code-bg);
+  color: var(--accent-strong);
+  font-size: 0.88em;
+}
+
+::selection {
+  background: var(--accent);
+  color: #04100c;
+}

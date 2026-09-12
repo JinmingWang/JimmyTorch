@@ -1,159 +1,48 @@
-# Training & Experiment Pipeline Guide
+# Training and experiment contracts
 
-Source code in `JimmyTorch/Training/`
+Read this reference for `DynamicConfig`, `JimmyExperiment`, `JimmyTrainer`, custom trainers, resume logic, evaluation, or checkpoints.
 
-## Experiment Setup
+## Configuration flow
 
-This is the `main_*.py` entry script template.
+`DynamicConfig(cls, **kwargs)` stores public attributes and builds `cls(**kwargs)`. Update it with attribute assignment or `add(**kwargs)`; remove a key with `remove(key)`.
 
-```python
-from TrainEvalTest.Experiment import Experiment
+`JimmyExperiment.start(checkpoint=None)`:
 
-def train(comments: str, dir_name: str, size: str):
-    experiment = Experiment(comments, dir_name=dir_name)
-    
-    # Configure dataset
-    experiment.train_set_cfg.cls = MyDataset
-    experiment.train_set_cfg.add(batch_size=64, shuffle=True)
-    
-    experiment.eval_set_cfg.cls = MyDataset
-    experiment.eval_set_cfg.batch_size = 256
-    
-    # Configure model
-    size_configs = {
-        "small": {"d_model": 128, "n_layers": 4},
-        "medium": {"d_model": 256, "n_layers": 6},
-        "large": {"d_model": 512, "n_layers": 8},
-    }
-    
-    experiment.model_cfg.cls = MyModel
-    experiment.model_cfg.add(**size_configs[size])
-    experiment.model_cfg.add(
-        mixed_precision=True,
-        compile_model=True,
-        clip_grad=1.0,
-    )
-    
-    # Configure optimizer
-    experiment.optimizer_cfg.lr = 2e-4
-    experiment.optimizer_cfg.weight_decay = 1e-4
-    
-    # Configure LR scheduler
-    experiment.lr_scheduler_cfg.mode = "min"  # Minimize metric
-    experiment.lr_scheduler_cfg.patience = 10
-    experiment.lr_scheduler_cfg.factor = 0.5
-    
-    # Training constants
-    experiment.constants["n_epochs"] = 100
-    experiment.constants["eval_interval"] = 5
-    experiment.constants["moving_avg"] = 1000
-    experiment.constants["early_stop_lr"] = 1e-6
-    
-    # Start training
-    trainer = experiment.start()
-    # Or resume: experiment.start("Runs/.../last.pth")
-    
-    return trainer
+1. Builds train and eval datasets by changing `dataset_cfg.set_name`.
+2. Builds the model, moves it to `Datasets.DEVICE`, optionally loads the checkpoint, and initializes its optimizer.
+3. Supplies that optimizer to `lr_scheduler_cfg` and builds the scheduler.
+4. Resolves run/log directories, writes readable comments and architecture files, and opens `ExperimentLogger`.
+5. Builds `trainer_type`, runs it synchronously, and returns the trainer.
 
-if __name__ == "__main__":
-    train("Experiment description here", dir_name="exp1", size="medium")
-```
+The default run path is `Runs/{DatasetClass}/{ModelClass}/{dir_name}/`; `dir_name` defaults to a timestamp. Supplied `save_dir` and `log_dir` act as bases to which the run name is appended.
 
-## DynamicConfig System
+## Default experiment constants
 
-Defers object instantiation for runtime modification:
+- `n_epochs=100`
+- `moving_avg=100`
+- `eval_interval=1`
+- `save_dir=None`
+- `log_dir=None`
+- `experiment_manager_server_port=9000`
+- `enable_tensorboard=False`
 
-```python
-# Define config
-cfg = DynamicConfig(cls=MyModel)
-cfg.add(d_model=256, n_layers=4)
+The trainer also accepts `early_stop_lr`, `progress_show_recent_steps`, `progress_refresh_interval`, and `progress_host` when added to the constants.
 
-# Modify before building
-cfg.add(n_layers=6)  # Update
-cfg.remove('d_model')  # Remove
+## Loop invariants
 
-# Build instance
-model = cfg.build()
-```
+- Training uses `MultiThreadLoader(train_set, 3)` and smooths each declared training loss independently.
+- The scheduler's `update` receives smoothed `Train/Main` after each epoch. A PyTorch scheduler without `update` is adapted from its `step` signature.
+- Evaluation averages each declared loss over validation batches.
+- On evaluation epochs, lower `Eval/Main` updates `best.pth`; `last.pth` is also written. It is therefore the latest **evaluation** checkpoint, not necessarily the latest epoch.
+- A positive `early_stop_lr` stops training when current learning rate drops below the threshold.
+- Logger status must close as done or error, and the live client must close in `finally`.
 
-## Trainer and Experiment class
+`JimmyExperiment.test(model, test_set)` calls `testStep` and returns a pandas DataFrame with one row per batch, not per sample.
 
-- `Trainer`: Executes training loop, handles evaluation, checkpointing, LR scheduling, a template is at `JimmyTorch/JimmyTrainer.py`.
-- `Experiment`: Manages overall experiment, holds configs, starts training, a template is at `JimmyTorch/JimmyExperiment.py`.
+## Custom trainers
 
-## Browser Training Monitor
+Set `experiment.trainer_type` to a compatible class for another paradigm. Preserve the constructor inputs used by `JimmyExperiment`, run directory semantics, main loss keys, logger lifecycle, and best-effort monitor boundary.
 
-`JimmyTrainer` starts a lightweight browser monitor by default. At startup it prints a URL such as `http://127.0.0.1:8000`; if that port is busy, it tries the next available port.
+## Validation
 
-The monitor is designed for one active run. It reports batch-level progress, current metrics, throughput, ETA, recent events, and a rolling metric chart without replacing TensorBoard's long-term experiment records. It uses bounded in-memory state and browser polling, so it does not write metric history or add a background model-processing workload.
-
-For a remote machine, forward the printed port through SSH:
-
-```bash
-ssh -L 8000:127.0.0.1:8000 user@training-host
-```
-
-Then open `http://127.0.0.1:8000` locally. Substitute the actual printed port if it is not `8000`.
-
-The following optional trainer constants configure the monitor:
-
-```python
-experiment.constants["progress_show_recent_epochs"] = 5
-experiment.constants["progress_show_recent_steps"] = None
-experiment.constants["progress_refresh_interval"] = 1.0
-experiment.constants["progress_host"] = "127.0.0.1"
-experiment.constants["progress_port"] = 8000
-```
-
-Use either `progress_show_recent_epochs` or `progress_show_recent_steps`. When both are provided, recent step history takes precedence. The default loopback host is intended for SSH port forwarding and keeps learning-rate controls off the local network.
-
-## Runtime Learning-Rate Control
-
-Set a positive finite learning rate in the browser monitor and confirm the change. The trainer applies the request immediately before the next training batch. This does not change the existing epoch-based evaluation, checkpointing, or scheduler cadence.
-
-## Resume Training
-
-```python
-trainer = experiment.start("Runs/.../last.pth")
-```
-
-## Early Stopping
-
-Stop when learning rate drops below threshold:
-
-```python
-experiment.constants["early_stop_lr"] = 1e-6
-```
-
-Prevents wasting compute on converged models.
-
-## Testing & Evaluation
-
-Separate from training for flexibility:
-
-```python
-def test(run_folder: str, test_city: str):
-    # Load model
-    model = MyModel(...).to(DEVICE)
-    model.loadFrom(f"{run_folder}/best.pth")
-    
-    # Create experiment
-    experiment = Experiment("Testing")
-    experiment.test_set_cfg.cls = MyDataset
-    experiment.test_set_cfg.add(city=test_city)
-    test_set = experiment.test_set_cfg.build()
-    
-    # Test and get report
-    report_df = experiment.test(model, test_set)
-    report_df.to_csv(f"{run_folder}/test_{test_city}.csv")
-    
-    return report_df
-```
-
-The `test()` method returns a pandas DataFrame with per-sample metrics.
-
-## Progress Monitoring
-
-1. Browser monitor for batch-level status and runtime learning-rate control
-2. The `log.txt` file for LLM-readable logs in the train folder
-3. TensorBoard for detailed metric visualization and persistent experiment records
+Use a tiny synthetic dataset and model to test component construction, one optimizer step, evaluation aggregation, scheduler update, checkpoint selection, resume, error closure, and operation with no monitor service. Avoid running the downloadable MNIST example unless network access and runtime cost are in scope.

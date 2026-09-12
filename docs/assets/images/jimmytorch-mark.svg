@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">JimmyTorch mark</title>
+  <desc id="desc">A geometric J and T connected as a neural circuit.</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="16" x2="143" y2="148" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8AF0CD"/>
+      <stop offset="1" stop-color="#159B78"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="8" y="8" width="144" height="144" rx="40" fill="#07110F" stroke="#2B5146" stroke-width="4"/>
+  <path d="M45 43h25v49c0 22-11 34-32 34h-7v-22h6c6 0 8-4 8-12V43Z" fill="url(#bg)"/>
+  <path d="M78 43h54v22h-15v61H92V65H78V43Z" fill="url(#bg)"/>
+  <g fill="#F5C76A" filter="url(#glow)">
+    <circle cx="31" cy="115" r="5"/><circle cx="132" cy="54" r="5"/><circle cx="105" cy="126" r="5"/>
+  </g>
+  <path d="M31 115h17M132 54h-18M105 126v-18" stroke="#F5C76A" stroke-width="3" stroke-linecap="round"/>
+</svg>

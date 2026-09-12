@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Configure training, evaluation, checkpoints, and experiment records with JimmyExperiment and JimmyTrainer."><title>Training &amp; evaluation · JimmyTorch</title><link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/css/site.css"><script src="assets/js/site.js" defer></script></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a><div class="header-actions"><a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a><button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button><button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button></div></div></header>
+  <div class="docs-shell"><aside class="sidebar" id="docs-navigation"><nav aria-label="Documentation"><p class="sidebar-label">Start here</p><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><p class="sidebar-label">Core workflow</p><a href="datasets.html">Datasets</a><a href="models.html">Models</a><a href="training.html" aria-current="page">Training &amp; evaluation</a><a href="experiment-manager.html">Experiment Manager</a><p class="sidebar-label">Reference</p><a href="utilities.html">Specialized utilities</a><a href="api.html">API reference</a></nav></aside>
+    <main class="docs-main" id="content">
+      <header class="page-head"><p class="eyebrow">Core workflow / orchestration</p><h1>Training and evaluation</h1><p class="lede"><code>JimmyExperiment</code> assembles a dataset, model, optimizer, scheduler, trainer, and run record. <code>JimmyTrainer</code> executes the batch loop and checkpoint policy.</p></header>
+
+      <section aria-labelledby="configure"><h2 id="configure">Configure an experiment</h2>
+        <pre><code>import torch
+from JimmyExperiment import JimmyExperiment
+from Datasets import MyDataset
+from Models import MyModel
+
+
+experiment = JimmyExperiment(
+    comments="Baseline with normalized inputs",
+    dir_name="baseline-v1",
+)
+
+experiment.dataset_cfg.cls = MyDataset
+experiment.dataset_cfg.add(batch_size=64, drop_last=False, shuffle=True)
+
+experiment.model_cfg.cls = MyModel
+experiment.model_cfg.add(
+    optimizer_cls=torch.optim.AdamW,
+    optimizer_args={"lr": 2e-4, "weight_decay": 1e-4},
+    mixed_precision=True,
+    compile_model=False,
+    clip_grad=1.0,
+)
+
+experiment.lr_scheduler_cfg.cls = torch.optim.lr_scheduler.ReduceLROnPlateau
+experiment.lr_scheduler_cfg.add(mode="min", factor=0.5, patience=10)
+
+experiment.constants.update({
+    "n_epochs": 100,
+    "moving_avg": 100,
+    "eval_interval": 1,
+    "experiment_manager_server_port": 9000,
+    "enable_tensorboard": False,
+})
+
+trainer = experiment.start()</code></pre>
+        <p><code>DynamicConfig</code> stores a target class plus public attributes. <code>build()</code> passes those attributes as keyword arguments to the current <code>cls</code>; use <code>add(**kwargs)</code> or attribute assignment to update them and <code>remove(key)</code> to delete one.</p>
+      </section>
+
+      <section class="section" aria-labelledby="lifecycle"><h2 id="lifecycle">What <code>start()</code> does</h2>
+        <div class="feature-grid three">
+          <article class="feature-card"><span class="number">01</span><h3>Build</h3><p>Builds the same dataset configuration twice with <code>set_name</code> changed to <code>train</code> and <code>eval</code>.</p></article>
+          <article class="feature-card"><span class="number">02</span><h3>Initialize</h3><p>Moves the model to <code>DEVICE</code>, optionally loads a checkpoint, initializes its optimizer, then builds the scheduler.</p></article>
+          <article class="feature-card"><span class="number">03</span><h3>Record and train</h3><p>Creates run paths and metadata, builds the selected trainer class, runs it synchronously, and returns it when training ends.</p></article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="constants"><h2 id="constants">Experiment constants</h2>
+        <div class="table-wrap"><table><thead><tr><th>Key</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+          <tr><td><code>n_epochs</code></td><td><code>100</code></td><td>Maximum number of epochs.</td></tr>
+          <tr><td><code>moving_avg</code></td><td><code>100</code></td><td>Window for reported training losses.</td></tr>
+          <tr><td><code>eval_interval</code></td><td><code>1</code></td><td>Evaluate and save checkpoints when the zero-based epoch index is divisible by this value.</td></tr>
+          <tr><td><code>save_dir</code></td><td><code>None</code></td><td>Base checkpoint directory; the run name is appended when supplied.</td></tr>
+          <tr><td><code>log_dir</code></td><td><code>None</code></td><td>Base log directory; defaults to the resolved save directory.</td></tr>
+          <tr><td><code>experiment_manager_server_port</code></td><td><code>9000</code></td><td>Port to which the training-side client reports.</td></tr>
+          <tr><td><code>enable_tensorboard</code></td><td><code>False</code></td><td>Create TensorBoard events alongside the SQLite run record.</td></tr>
+        </tbody></table></div>
+        <p>Additional <code>JimmyTrainer</code> options—including <code>early_stop_lr</code>, <code>progress_show_recent_steps</code>, <code>progress_refresh_interval</code>, and <code>progress_host</code>—can be added to <code>experiment.constants</code>.</p>
+      </section>
+
+      <section class="section" aria-labelledby="loop"><h2 id="loop">Loop, scheduler, and checkpoint policy</h2>
+        <ul>
+          <li>Every epoch wraps the training dataset in <code>MultiThreadLoader(queue_size=3)</code>.</li>
+          <li>Returned training losses are smoothed for reporting with one <code>MovingAvg</code> per declared name.</li>
+          <li>The scheduler's compatible <code>update</code> function receives the smoothed <code>Train/Main</code> value after each epoch.</li>
+          <li>Evaluation calls <code>model.evalStep</code> for each validation batch and averages every declared evaluation loss.</li>
+          <li>On evaluation epochs, <code>best.pth</code> is updated when <code>Eval/Main</code> improves and <code>last.pth</code> is overwritten.</li>
+          <li>Training stops early when <code>early_stop_lr &gt; 0</code> and the current learning rate falls below it.</li>
+        </ul>
+        <div class="callout warning"><strong>“Last” means the last evaluation checkpoint.</strong>If <code>eval_interval</code> is greater than one, <code>last.pth</code> is not written after every epoch.</div>
+      </section>
+
+      <section class="section" aria-labelledby="resume"><h2 id="resume">Resume and test</h2>
+        <pre><code># Load model state before the optimizer is created.
+trainer = experiment.start("Runs/.../last.pth")
+
+# Test independently; the result has one row per test batch.
+test_set = experiment.dataset_cfg.build()
+report = experiment.test(trainer.model, test_set)
+report.to_csv("test-report.csv", index=False)</code></pre>
+        <p><code>JimmyExperiment.test()</code> calls <code>model.testStep</code> and returns a pandas <code>DataFrame</code> containing each declared evaluation metric per batch.</p>
+      </section>
+
+      <section class="section" aria-labelledby="custom"><h2 id="custom">Custom trainers</h2><p>Assign a compatible class to <code>experiment.trainer_type</code> when a task needs a different training paradigm. It receives the built train/eval datasets, model, scheduler, resolved directories, experiment constants, and <code>ExperimentLogger</code>. Preserve the local logging and close/error lifecycle when replacing the default trainer.</p></section>
+    </main>
+  </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="experiment-manager.html">Next: Experiment Manager →</a></span></footer>
+</body></html>

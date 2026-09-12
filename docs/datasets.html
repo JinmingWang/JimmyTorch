@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Implement datasets with JimmyDataset and MultiThreadLoader."><title>Datasets · JimmyTorch</title><link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/css/site.css"><script src="assets/js/site.js" defer></script></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a><div class="header-actions"><a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a><button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button><button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button></div></div></header>
+  <div class="docs-shell"><aside class="sidebar" id="docs-navigation"><nav aria-label="Documentation"><p class="sidebar-label">Start here</p><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><p class="sidebar-label">Core workflow</p><a href="datasets.html" aria-current="page">Datasets</a><a href="models.html">Models</a><a href="training.html">Training &amp; evaluation</a><a href="experiment-manager.html">Experiment Manager</a><p class="sidebar-label">Reference</p><a href="utilities.html">Specialized utilities</a><a href="api.html">API reference</a></nav></aside>
+    <main class="docs-main" id="content">
+      <header class="page-head"><p class="eyebrow">Core workflow / data</p><h1>Dataset development</h1><p class="lede"><code>JimmyDataset</code> is an iterable over batches, not a drop-in subclass of <code>torch.utils.data.Dataset</code>. A dataset owns splitting, optional shuffling, and the dictionary contract consumed by the model.</p></header>
+
+      <section aria-labelledby="contract"><h2 id="contract">The contract</h2>
+        <div class="feature-grid three">
+          <article class="feature-card"><span class="number">01</span><h3>Call the base initializer</h3><p>Pass <code>set_name</code>, <code>batch_size</code>, <code>drop_last</code>, and <code>shuffle</code>.</p></article>
+          <article class="feature-card"><span class="number">02</span><h3>Set the sample count</h3><p>After loading and selecting a split, assign the real value to <code>self.n_samples</code>.</p></article>
+          <article class="feature-card"><span class="number">03</span><h3>Return a batch dictionary</h3><p><code>__getitem__</code> receives a zero-based batch index and returns named values for that batch.</p></article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="implementation"><h2 id="implementation">Minimal implementation</h2>
+        <pre><code>from typing import Literal
+import torch
+from Datasets import JimmyDataset, DEVICE
+
+
+class MyDataset(JimmyDataset):
+    def __init__(
+        self,
+        set_name: Literal["train", "eval", "test", "debug", "all"],
+        batch_size: int,
+        drop_last: bool = False,
+        shuffle: bool = False,
+    ):
+        super().__init__(set_name, batch_size, drop_last, shuffle)
+
+        all_inputs = torch.load("processed-data.pth", map_location=DEVICE)
+        splits = {
+            "train": slice(0, -300),
+            "eval": slice(-300, -200),
+            "test": slice(-200, None),
+            "debug": slice(0, 100),
+            "all": slice(None),
+        }
+        selected = splits[set_name]
+        self.features = all_inputs["features"][selected].to(DEVICE)
+        self.labels = all_inputs["labels"][selected].to(DEVICE)
+        self.n_samples = len(self.features)
+
+    def __getitem__(self, idx: int) -> dict:
+        start = idx * self.batch_size
+        end = min(start + self.batch_size, self.n_samples)
+        indices = self._indices[start:end]
+        return {
+            "features": self.features[indices],
+            "labels": self.labels[indices],
+        }</code></pre>
+        <div class="callout"><strong>Use descriptive keys.</strong>The framework does not impose <code>input</code>/<code>target</code> names. Stable domain names make model interfaces and debugging clearer.</div>
+      </section>
+
+      <section class="section" aria-labelledby="iteration"><h2 id="iteration">Batching and iteration</h2>
+        <div class="table-wrap"><table><thead><tr><th>Member</th><th>Behavior</th></tr></thead><tbody>
+          <tr><td><code>n_batches</code></td><td>Recomputes the batch count from <code>n_samples</code>, <code>batch_size</code>, and <code>drop_last</code>.</td></tr>
+          <tr><td><code>__len__()</code></td><td>Returns the number of samples, not the number of batches.</td></tr>
+          <tr><td><code>__iter__()</code></td><td>Resets the batch cursor and creates <code>self._indices</code>, shuffled when requested.</td></tr>
+          <tr><td><code>__next__()</code></td><td>Calls <code>__getitem__</code> with batch indices <code>0..n_batches-1</code>.</td></tr>
+        </tbody></table></div>
+        <p>Because <code>_indices</code> is initialized by <code>__iter__</code>, iterate over a dataset—or call <code>iter(dataset)</code>—before invoking a custom <code>__getitem__</code> that relies on it.</p>
+      </section>
+
+      <section class="section" aria-labelledby="loader"><h2 id="loader">Queued preprocessing with MultiThreadLoader</h2>
+        <p><code>JimmyTrainer</code> wraps its training dataset in <code>MultiThreadLoader</code>. The loader uses one daemon producer thread and a bounded queue so CPU-side batch work can overlap model execution.</p>
+        <pre><code>from Datasets import MultiThreadLoader
+
+loader = MultiThreadLoader(train_set, queue_size=3)
+for batch in loader:
+    train_on(batch)</code></pre>
+        <p>The constructor parameter is <code>queue_size</code>; it does not accept <code>num_workers</code>. Keep <code>__getitem__</code> thread-safe and avoid using the loader when direct iteration is simpler.</p>
+      </section>
+
+      <section class="section" aria-labelledby="device"><h2 id="device">Device and loading strategy</h2>
+        <p><code>Datasets.DEVICE</code> selects CUDA when available and CPU otherwise. The built-in MNIST dataset preloads tensors onto that device. Custom datasets may follow this GPU-first approach when their processed data fits in accelerator memory, but the base class itself does not move values or require every dataset to preload.</p>
+        <div class="callout warning"><strong>Memory is a dataset decision.</strong>Estimate the full split size before preloading. For large data, implement bounded loading deliberately and ensure the returned dictionary is on the device expected by the model.</div>
+      </section>
+
+      <section class="section" aria-labelledby="specialized"><h2 id="specialized">Specialized data helpers</h2><p>JimmyTorch exports trajectory transforms, sequence padding, 3D mesh loading and slicing, projection utilities, and signed-distance rasterization. See <a href="utilities.html">Specialized utilities</a> for current names and constraints.</p></section>
+    </main>
+  </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="models.html">Next: Models →</a></span></footer>
+</body></html>

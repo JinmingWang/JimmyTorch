@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Run and understand the JimmyTorch Experiment Manager service, client, and SQLite storage."><title>Experiment Manager · JimmyTorch</title><link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/css/site.css"><script src="assets/js/site.js" defer></script></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a><div class="header-actions"><a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a><button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button><button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button></div></div></header>
+  <div class="docs-shell"><aside class="sidebar" id="docs-navigation"><nav aria-label="Documentation"><p class="sidebar-label">Start here</p><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><p class="sidebar-label">Core workflow</p><a href="datasets.html">Datasets</a><a href="models.html">Models</a><a href="training.html">Training &amp; evaluation</a><a href="experiment-manager.html" aria-current="page">Experiment Manager</a><p class="sidebar-label">Reference</p><a href="utilities.html">Specialized utilities</a><a href="api.html">API reference</a></nav></aside>
+    <main class="docs-main" id="content">
+      <header class="page-head"><p class="eyebrow">Core workflow / observability</p><h1>Experiment Manager</h1><p class="lede">A standalone local service combines one live training feed with durable run history. It is an observer and operator interface, not the owner of the training loop.</p></header>
+
+      <div class="screenshot"><img src="assets/images/experiment-manager.png" alt="Sanitized JimmyTorch Experiment Manager interface showing live progress cards and comparison panels"></div>
+
+      <section class="section" aria-labelledby="start"><h2 id="start">Start the service</h2>
+        <pre><code>python -m Training.ExperimentManager</code></pre>
+        <p>The default host is <code>127.0.0.1</code>, the starting port is <code>9000</code>, and the default run root is <code>./Runs</code> relative to the command's working directory.</p>
+        <pre><code>python -m Training.ExperimentManager \
+  --runs-root /path/to/project/Runs \
+  --host 127.0.0.1 \
+  --port 9000</code></pre>
+        <div class="callout warning"><strong>Match the client port.</strong>The server searches upward for a free port when its requested port is occupied, but training clients report to the configured fixed port. If the service prints a port other than 9000, set <code>experiment.constants["experiment_manager_server_port"]</code> to that port.</div>
+      </section>
+
+      <section class="section" aria-labelledby="architecture"><h2 id="architecture">Three independent layers</h2>
+        <div class="feature-grid three">
+          <article class="feature-card"><span class="number">01</span><h3>Local logger</h3><p><code>ExperimentLogger</code> synchronously records run metadata, scalar samples, and PNG figures in the run's SQLite file.</p></article>
+          <article class="feature-card"><span class="number">02</span><h3>Live client</h3><p><code>ExperimentManagerClient</code> sends current progress on a daemon thread and polls for a requested learning rate.</p></article>
+          <article class="feature-card"><span class="number">03</span><h3>Service and UI</h3><p>The aiohttp server exposes REST and WebSocket endpoints, scans run history, and serves the bundled React dashboard.</p></article>
+        </div>
+        <p>HTTP failures are swallowed by the client, so a missing monitor does not block or crash training. The current service keeps only the most recently registered run in its live-state panel; historical data comes from run databases.</p>
+      </section>
+
+      <section class="section" aria-labelledby="live"><h2 id="live">Current training</h2>
+        <p>The live panel reports overall and epoch progress, elapsed and remaining time, throughput, current metrics, applied/pending learning rate, and best-effort CPU/GPU utilization. System fields are omitted when optional platform libraries are unavailable.</p>
+        <p>A positive finite learning-rate request entered in the dashboard is polled by the client, consumed immediately before the next training batch, and applied to the optimizer's first parameter group. The UI then receives the applied value.</p>
+        <div class="callout warning"><strong>A learning-rate change affects the run.</strong>Treat the control as an operational action, not a visualization setting. The scheduler may alter the rate again on its normal epoch cadence.</div>
+      </section>
+
+      <section class="section" aria-labelledby="history"><h2 id="history">Experiment management</h2>
+        <div class="card-grid">
+          <article class="card"><h3>Run tree</h3><p>Browse <code>dataset / model / run</code>, filter runs, select several for comparison, star important work, and assign colors.</p></article>
+          <article class="card"><h3>Scalar curves</h3><p>Compare tagged metrics across selected runs, adjust curve settings, inspect value ranges, and expand individual charts.</p></article>
+          <article class="card"><h3>Figures and summaries</h3><p>Review stored matplotlib figures, run comments, hyperparameters, status, timestamps, and checkpoint availability.</p></article>
+          <article class="card"><h3>Architecture view</h3><p>Open a run's stored model text as an interactive module diagram when architecture metadata exists.</p></article>
+        </div>
+        <p>The service also watches the run directory and broadcasts tree changes to connected browsers. Older folders without a SQLite record are scanned as legacy runs with a reduced metadata surface.</p>
+      </section>
+
+      <section class="section" aria-labelledby="persistence"><h2 id="persistence">Persistence layout</h2>
+        <div class="table-wrap"><table><thead><tr><th>File</th><th>Scope</th><th>Contents</th></tr></thead><tbody>
+          <tr><td><code>Runs/.../&lt;run&gt;/status_and_log.sqlite</code></td><td>One experiment</td><td>Metadata, status, sampled scalar series, and PNG figure blobs.</td></tr>
+          <tr><td><code>Runs/Experiment_GUI_Status.sqlite</code></td><td>Dashboard</td><td>Theme and cross-run UI settings such as selections, curve configuration, collapsed panels, and notes.</td></tr>
+          <tr><td><code>model_arch.txt</code></td><td>One experiment</td><td>Readable model representation and legacy fallback for the architecture view.</td></tr>
+          <tr><td><code>comments.txt</code></td><td>One experiment</td><td>Readable comments and legacy fallback alongside SQLite metadata.</td></tr>
+        </tbody></table></div>
+        <p>Scalar storage uses capped sampling with a recent-value tail, and figure storage is capped per tag. This bounds database growth while retaining both long-run shape and recent detail.</p>
+      </section>
+
+      <section class="section" aria-labelledby="remote"><h2 id="remote">Remote training</h2>
+        <p>The default loopback binding is appropriate for local use and SSH forwarding. Keep the service on loopback and forward its actual port:</p>
+        <pre><code>ssh -L 9000:127.0.0.1:9000 user@training-host</code></pre>
+        <p>Then open <code>http://127.0.0.1:9000</code> locally. If you deliberately bind to a non-loopback address, protect access at the network layer because the interface includes mutation endpoints such as learning-rate control and run management.</p>
+      </section>
+    </main>
+  </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="utilities.html">Next: Specialized utilities →</a></span></footer>
+</body></html>

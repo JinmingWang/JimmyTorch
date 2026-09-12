@@ -1,0 +1,234 @@
+.eyebrow {
+  margin-bottom: 0.7rem;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 760;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.button,
+.icon-button,
+.nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  padding: 0.62rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 680;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover,
+.icon-button:hover,
+.nav-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #06100d;
+}
+
+.icon-button {
+  display: none;
+  width: 2.6rem;
+  padding: 0;
+}
+
+.js .icon-button {
+  display: inline-flex;
+}
+
+.nav-toggle {
+  display: none;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(2rem, 6vw, 4.5rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, rgba(84, 224, 177, 0.13), transparent 45%),
+    var(--surface-soft);
+  box-shadow: var(--shadow);
+}
+
+.hero::after {
+  position: absolute;
+  right: -7rem;
+  bottom: -9rem;
+  width: 24rem;
+  height: 24rem;
+  border: 1px solid rgba(84, 224, 177, 0.2);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3rem rgba(84, 224, 177, 0.035), 0 0 0 6rem rgba(84, 224, 177, 0.02);
+  content: "";
+}
+
+.hero h1 {
+  position: relative;
+  z-index: 1;
+  max-width: 11ch;
+}
+
+.hero .lede {
+  position: relative;
+  z-index: 1;
+  color: var(--text-muted);
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+}
+
+.hero-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+}
+
+.card-grid,
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.feature-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.card,
+.feature-card {
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.card h3,
+.feature-card h3 {
+  margin-top: 0;
+}
+
+.feature-card p,
+.card p {
+  margin-bottom: 0;
+  color: var(--text-muted);
+}
+
+.number {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: 0.8rem;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--accent-strong);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.callout {
+  margin: 1.5rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+
+.callout.warning {
+  border-left-color: var(--amber);
+  background: color-mix(in srgb, var(--amber), transparent 90%);
+}
+
+.callout strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.diagram,
+.screenshot {
+  overflow: hidden;
+  margin: 1.7rem 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: #08120f;
+  box-shadow: var(--shadow);
+}
+
+.screenshot img,
+.diagram img {
+  width: 100%;
+}
+
+.caption {
+  margin-top: -0.8rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.pill {
+  padding: 0.28rem 0.62rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0 2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.table-wrap table {
+  margin: 0;
+}
+
+.link-card {
+  display: block;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.link-card:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  transform: translateY(-2px);
+}
+
+.link-card .arrow {
+  color: var(--accent);
+}
+
+.tag {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}

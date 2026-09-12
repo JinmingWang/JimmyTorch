@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Source-aligned JimmyTorch API reference."><title>API reference · JimmyTorch</title><link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/css/site.css"><script src="assets/js/site.js" defer></script></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a><div class="header-actions"><a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a><button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button><button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button></div></div></header>
+  <div class="docs-shell"><aside class="sidebar" id="docs-navigation"><nav aria-label="Documentation"><p class="sidebar-label">Start here</p><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><p class="sidebar-label">Core workflow</p><a href="datasets.html">Datasets</a><a href="models.html">Models</a><a href="training.html">Training &amp; evaluation</a><a href="experiment-manager.html">Experiment Manager</a><p class="sidebar-label">Reference</p><a href="utilities.html">Specialized utilities</a><a href="api.html" aria-current="page">API reference</a></nav></aside>
+    <main class="docs-main" id="content">
+      <header class="page-head"><p class="eyebrow">Reference / public surface</p><h1>API reference</h1><p class="lede">A compact index of the principal exported classes and functions. Signatures reflect the current source; detailed semantics live in the workflow pages.</p></header>
+
+      <section aria-labelledby="core"><h2 id="core">Core orchestration</h2>
+        <div class="table-wrap"><table><thead><tr><th>API</th><th>Signature or primary members</th><th>Purpose</th></tr></thead><tbody>
+          <tr><td><code>DynamicConfig</code></td><td><code>(cls, **kwargs)</code>; <code>build</code>, <code>add</code>, <code>remove</code></td><td>Deferred object construction from mutable keyword configuration.</td></tr>
+          <tr><td><code>JimmyExperiment</code></td><td><code>(comments, dir_name=None)</code>; <code>start(checkpoint=None)</code>, <code>test(model, test_set)</code></td><td>Build components, prepare a run, start training, and run batch-level testing.</td></tr>
+          <tr><td><code>JimmyTrainer</code></td><td><code>start()</code>, <code>evaluate(dataset, compute_avg=True, pm=None, tm=None)</code></td><td>Training loop, evaluation, logging, scheduling, and checkpoints.</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section" aria-labelledby="data"><h2 id="data">Datasets</h2>
+        <div class="table-wrap"><table><thead><tr><th>API</th><th>Signature</th><th>Purpose</th></tr></thead><tbody>
+          <tr><td><code>JimmyDataset</code></td><td><code>(set_name, batch_size, drop_last=False, shuffle=False)</code></td><td>Base iterable that yields batches by zero-based batch index.</td></tr>
+          <tr><td><code>MultiThreadLoader</code></td><td><code>(dataset, queue_size=3)</code></td><td>Single-producer threaded prefetch queue.</td></tr>
+          <tr><td><code>cropPadSequence</code></td><td><code>(seq, target_len, pad_value=0.0)</code></td><td>Crop or pad a tensor along its first dimension.</td></tr>
+          <tr><td><code>DEVICE</code></td><td>module value</td><td>CUDA device when available, otherwise CPU.</td></tr>
+        </tbody></table></div>
+        <p>Trajectory and 3D exports are listed on <a href="utilities.html">Specialized utilities</a>.</p>
+      </section>
+
+      <section class="section" aria-labelledby="model"><h2 id="model">Models</h2>
+        <div class="table-wrap"><table><thead><tr><th>API</th><th>Signature or members</th><th>Purpose</th></tr></thead><tbody>
+          <tr><td><code>JimmyModel</code></td><td><code>(optimizer_cls=None, optimizer_args=None, mixed_precision=False, compile_model=False, clip_grad=0.0)</code></td><td>Base model with optimizer, AMP, checkpoint, and step contracts.</td></tr>
+          <tr><td><code>FCLayers</code> / <code>MLP</code></td><td><code>(channel_list, act, final_act=None)</code></td><td>Linear stack with shared intermediate activation module.</td></tr>
+          <tr><td><code>PosEncoderSinusoidal</code></td><td><code>(dim, max_len=5000, merge_mode="add", d_pe=None)</code></td><td>Fixed positional encoding with add or concatenate modes.</td></tr>
+          <tr><td><code>PosEncoderLearned</code></td><td><code>(dim, max_len=5000, merge_mode="add")</code></td><td>Learned positional encoding.</td></tr>
+          <tr><td><code>PosEncoderRotary</code></td><td><code>(dim, max_len=5000, base=10000.0)</code></td><td>Rotary positional encoding; <code>dim</code> must be even.</td></tr>
+          <tr><td><code>PatchMaker1D</code></td><td><code>(patch_size, stride=1, patch_as_vector=True)</code></td><td>Sliding 1D sequence patches.</td></tr>
+          <tr><td><code>PatchMaker2D</code></td><td><code>(patch_size, stride=1, patch_as_vector=True, flatten=True)</code></td><td>Sliding image patches.</td></tr>
+        </tbody></table></div>
+        <h3>Generated convolution blocks</h3>
+        <p><code>Models.Basics</code> exposes 1D and 2D pre-/post-activation combinations using BatchNorm (<code>Bn</code>), InstanceNorm (<code>In</code>), or GroupNorm (<code>Gn</code>) with ReLU, LeakyReLU, GELU, or SiLU. Post-activation names follow <code>Conv{1D|2D}{Norm}{Activation}</code>; pre-activation names follow <code>{Norm}{Activation}Conv{1D|2D}</code>.</p>
+        <h3>Attention and utility modules</h3>
+        <div class="table-wrap"><table><thead><tr><th>API</th><th>Signature</th></tr></thead><tbody>
+          <tr><td><code>SELayer1D</code> / <code>SELayer2D</code></td><td><code>(c_in, reduction=16)</code></td></tr>
+          <tr><td><code>MHSA</code></td><td><code>(d_in, num_heads, dropout=0.0)</code></td></tr>
+          <tr><td><code>MHCA</code></td><td><code>(d_in, d_cond, num_heads, dropout=0.0)</code></td></tr>
+          <tr><td><code>Transpose</code></td><td><code>(dim1, dim2)</code></td></tr>
+          <tr><td><code>Permute</code></td><td><code>(*dims)</code></td></tr>
+          <tr><td><code>Reshape</code></td><td><code>(*shape)</code></td></tr>
+          <tr><td><code>PrintShape</code></td><td><code>(name="")</code></td></tr>
+          <tr><td><code>Rearrange</code></td><td><code>(pattern, **known_dimensions)</code></td></tr>
+          <tr><td><code>ResWrapper</code></td><td><code>(module)</code></td></tr>
+          <tr><td><code>SequentialMultiIO</code></td><td>standard <code>nn.Sequential</code> construction</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section" aria-labelledby="loss"><h2 id="loss">Losses and functional helpers</h2>
+        <div class="table-wrap"><table><thead><tr><th>API</th><th>Signature</th><th>Purpose</th></tr></thead><tbody>
+          <tr><td><code>MaskedLoss</code></td><td><code>(base_loss)</code>; <code>forward(pred, target, mask)</code></td><td>Apply a base loss to masked selections.</td></tr>
+          <tr><td><code>SequentialLossWithLength</code></td><td><code>(base_loss)</code>; <code>forward(pred, target, lengths)</code></td><td>Mask padded sequence positions from explicit lengths.</td></tr>
+          <tr><td><code>RMSE</code></td><td><code>()</code>; <code>forward(pred, target)</code></td><td>Root mean squared error.</td></tr>
+          <tr><td><code>KLDLoss</code></td><td><code>(free_bits=-6.0)</code>; <code>forward(z_mean, z_logvar)</code></td><td>KL divergence with a configured lower clamp.</td></tr>
+          <tr><td><code>extendAs</code></td><td><code>(a, b)</code></td><td>Extend trailing dimensions of one tensor to match another.</td></tr>
+          <tr><td><code>getAutoCast</code></td><td><code>(data_sample, mixed_precision)</code></td><td>Return a device-aware autocast context or a no-op context.</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section" aria-labelledby="monitor"><h2 id="monitor">Experiment Manager package</h2>
+        <div class="table-wrap"><table><thead><tr><th>API</th><th>Role</th></tr></thead><tbody>
+          <tr><td><code>ExperimentLogger</code></td><td>Per-run SQLite writer for scalars, figures, metadata, and lifecycle status.</td></tr>
+          <tr><td><code>ExperimentManagerClient</code></td><td>Best-effort live reporter and learning-rate request poller.</td></tr>
+          <tr><td><code>build_app(runs_root=None)</code></td><td>Build the aiohttp application for embedding or tests.</td></tr>
+          <tr><td><code>run_server(host="127.0.0.1", start_port=9000, runs_root=None)</code></td><td>Choose a free port and run the dashboard service.</td></tr>
+          <tr><td>Status constants</td><td><code>STATUS_IDLE</code>, <code>STATUS_TRAINING</code>, <code>STATUS_EVALUATING</code>, <code>STATUS_DONE</code>, <code>STATUS_ERROR</code></td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section" aria-labelledby="training-utils"><h2 id="training-utils">Training utilities</h2>
+        <div class="table-wrap"><table><thead><tr><th>API</th><th>Primary members</th><th>Purpose</th></tr></thead><tbody>
+          <tr><td><code>MovingAvg</code></td><td><code>update(value)</code>, <code>get()</code>, <code>toList()</code></td><td>Fixed-window scalar average.</td></tr>
+          <tr><td><code>MovingAvgGroup</code></td><td><code>update(values)</code>, <code>get()</code></td><td>Named collection of moving averages.</td></tr>
+          <tr><td><code>TensorBoardManager</code></td><td><code>register(tag, value_type)</code>, <code>log(global_step, **values)</code></td><td>Optional scalar/figure TensorBoard writer.</td></tr>
+          <tr><td><code>testCudaSpeed</code></td><td><code>(model, input_shapes, output_shapes)</code></td><td>Measure model execution on CUDA.</td></tr>
+          <tr><td><code>testFlops</code></td><td><code>(model, input_shapes, print_detailed=False)</code></td><td>Report parameter and FLOP counts with <code>calflops</code>.</td></tr>
+        </tbody></table></div>
+      </section>
+    </main>
+  </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="index.html">Back to overview</a></span></footer>
+</body></html>

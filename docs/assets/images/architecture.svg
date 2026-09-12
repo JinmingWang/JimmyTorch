@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+  <title id="title">JimmyTorch architecture</title>
+  <desc id="desc">Data flows from dictionary-based datasets through models and the trainer, while experiment configuration creates components and the Experiment Manager records and visualizes each run.</desc>
+  <defs>
+    <linearGradient id="back" x1="0" y1="0" x2="1400" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07110F"/><stop offset="1" stop-color="#0D1E19"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8AF0CD"/><stop offset="1" stop-color="#25B88D"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0 10 5 0 10Z" fill="#54E0B1"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-opacity=".28"/></filter>
+  </defs>
+  <rect width="1400" height="760" rx="34" fill="url(#back)"/>
+  <g opacity=".13" stroke="#54E0B1"><path d="M0 110h1400M0 220h1400M0 330h1400M0 440h1400M0 550h1400M0 660h1400"/><path d="M140 0v760M280 0v760M420 0v760M560 0v760M700 0v760M840 0v760M980 0v760M1120 0v760M1260 0v760"/></g>
+  <text x="70" y="82" fill="#8AF0CD" font-family="ui-monospace, monospace" font-size="20" letter-spacing="4">JIMMYTORCH / RESEARCH PIPELINE</text>
+  <text x="70" y="126" fill="#EEF9F4" font-family="system-ui, sans-serif" font-size="32" font-weight="700">Configuration as code. Experiments as durable records.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="70" y="216" width="260" height="166" rx="22" fill="#11241E" stroke="#345D50" stroke-width="2"/>
+    <rect x="410" y="216" width="260" height="166" rx="22" fill="#11241E" stroke="#345D50" stroke-width="2"/>
+    <rect x="750" y="216" width="260" height="166" rx="22" fill="#11241E" stroke="#345D50" stroke-width="2"/>
+    <rect x="1090" y="216" width="240" height="166" rx="22" fill="#11241E" stroke="#345D50" stroke-width="2"/>
+  </g>
+  <g font-family="system-ui, sans-serif">
+    <text x="100" y="264" fill="#54E0B1" font-size="18" font-weight="700">01 / DATASET</text>
+    <text x="100" y="310" fill="#EEF9F4" font-size="27" font-weight="700">JimmyDataset</text>
+    <text x="100" y="345" fill="#9EB5AB" font-size="18">batched dictionaries</text>
+
+    <text x="440" y="264" fill="#7CB8FF" font-size="18" font-weight="700">02 / MODEL</text>
+    <text x="440" y="310" fill="#EEF9F4" font-size="27" font-weight="700">JimmyModel</text>
+    <text x="440" y="345" fill="#9EB5AB" font-size="18">steps, losses, outputs</text>
+
+    <text x="780" y="264" fill="#F5C76A" font-size="18" font-weight="700">03 / TRAIN</text>
+    <text x="780" y="310" fill="#EEF9F4" font-size="27" font-weight="700">JimmyTrainer</text>
+    <text x="780" y="345" fill="#9EB5AB" font-size="18">evaluate + checkpoint</text>
+
+    <text x="1120" y="264" fill="#FF8066" font-size="18" font-weight="700">04 / RECORD</text>
+    <text x="1120" y="310" fill="#EEF9F4" font-size="27" font-weight="700">SQLite run</text>
+    <text x="1120" y="345" fill="#9EB5AB" font-size="18">metrics + figures</text>
+  </g>
+  <g fill="none" stroke="#54E0B1" stroke-width="4" marker-end="url(#arrow)">
+    <path d="M330 299h62"/><path d="M670 299h62"/><path d="M1010 299h62"/>
+  </g>
+
+  <rect x="70" y="484" width="550" height="176" rx="22" fill="#0B1714" stroke="#2B5146" stroke-width="2"/>
+  <rect x="780" y="484" width="550" height="176" rx="22" fill="#0B1714" stroke="#2B5146" stroke-width="2"/>
+  <g font-family="system-ui, sans-serif">
+    <text x="105" y="530" fill="#8AF0CD" font-size="18" font-weight="700">ORCHESTRATE</text>
+    <text x="105" y="575" fill="#EEF9F4" font-size="28" font-weight="700">JimmyExperiment + DynamicConfig</text>
+    <text x="105" y="613" fill="#9EB5AB" font-size="18">Build datasets, model, optimizer and scheduler at runtime.</text>
+
+    <text x="815" y="530" fill="#8AF0CD" font-size="18" font-weight="700">OBSERVE</text>
+    <text x="815" y="575" fill="#EEF9F4" font-size="28" font-weight="700">Experiment Manager</text>
+    <text x="815" y="613" fill="#9EB5AB" font-size="18">Live status, comparisons, figures, notes and architecture.</text>
+  </g>
+  <path d="M345 484V422h535v-26" fill="none" stroke="#F5C76A" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M1210 382v84" fill="none" stroke="#54E0B1" stroke-width="4" marker-end="url(#arrow)"/>
+</svg>
