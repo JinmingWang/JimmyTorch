@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 620" role="img" aria-labelledby="title desc">
+  <title id="title">JimmyTorch Tensor Prism logo concept</title>
+  <desc id="desc">A compact isometric cube with M, D, and E on its three faces for Models, Datasets, and Experiments, above the JimmyTorch wordmark.</desc>
+  <defs>
+    <linearGradient id="background" x1="50" y1="25" x2="570" y2="680" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07120F"/>
+      <stop offset=".55" stop-color="#0A1B17"/>
+      <stop offset="1" stop-color="#08141D"/>
+    </linearGradient>
+    <linearGradient id="modelFace" x1="310" y1="70" x2="310" y2="290" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7CB8FF" stop-opacity=".3"/>
+      <stop offset="1" stop-color="#315E91" stop-opacity=".13"/>
+    </linearGradient>
+    <linearGradient id="dataFace" x1="100" y1="190" x2="310" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#54E0B1" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#1B6B55" stop-opacity=".1"/>
+    </linearGradient>
+    <linearGradient id="experimentFace" x1="520" y1="190" x2="310" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BFA0FF" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#634C9A" stop-opacity=".1"/>
+    </linearGradient>
+    <pattern id="microGrid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M30 0H0V30" fill="none" stroke="#8DCBB8" stroke-opacity=".045"/>
+    </pattern>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#000000" flood-opacity=".46"/>
+    </filter>
+  </defs>
+
+  <rect x="10" y="10" width="600" height="600" rx="64" fill="url(#background)" stroke="#294A41" stroke-width="2"/>
+  <rect x="10" y="10" width="600" height="600" rx="64" fill="url(#microGrid)"/>
+  <circle cx="310" cy="250" r="190" fill="#54E0B1" opacity=".035" filter="url(#glow)"/>
+
+  <!-- A deliberately compact prism: one letter, one idea, per face. -->
+  <g transform="translate(62 20) scale(.8)">
+    <g filter="url(#shadow)">
+      <path d="M310 62 516 175 310 290 104 175Z" fill="url(#modelFace)" stroke="#7CB8FF" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M104 175 310 290V522L104 407Z" fill="url(#dataFace)" stroke="#54E0B1" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M516 175 310 290V522L516 407Z" fill="url(#experimentFace)" stroke="#A88BEA" stroke-width="6" stroke-linejoin="round"/>
+
+      <g font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="116" font-weight="800" text-anchor="middle" stroke="#07110F" stroke-opacity=".3" stroke-width="3" paint-order="stroke fill">
+        <text x="310" y="222" fill="#B9DAFF">M</text>
+        <text x="205" y="397" fill="#A3F7DC">D</text>
+        <text x="415" y="397" fill="#DCCEFF">E</text>
+      </g>
+
+      <circle cx="310" cy="290" r="8" fill="#F5C76A" filter="url(#glow)"/>
+      <circle cx="310" cy="290" r="3" fill="#FFFFFF"/>
+    </g>
+  </g>
+
+  <g font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" text-anchor="middle">
+    <text x="310" y="535" font-size="76" font-weight="760" letter-spacing="-2.5">
+      <tspan fill="#EEF9F4">Jimmy</tspan><tspan fill="#8AF0CD">Torch</tspan>
+    </text>
+  </g>
+</svg>

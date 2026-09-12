@@ -1,8 +1,6 @@
-<p align="center">
-  <img src="docs/assets/images/jimmytorch-mark.svg" width="124" alt="JimmyTorch logo">
-</p>
-
-<h1 align="center">JimmyTorch</h1>
+<h1 align="center">
+  <img src="docs/assets/images/jimmytorch-tensor-prism.svg" width="240" alt="JimmyTorch prism logo representing Datasets, Models, and Experiments">
+</h1>
 
 <p align="center">
   A compact PyTorch research framework for turning datasets, models, and training loops into reproducible, observable experiments.
@@ -32,6 +30,14 @@ JimmyTorch provides a small set of explicit contracts rather than hiding researc
 | Dictionary-based datasets and reusable model components | Configuration-as-code, mixed precision, evaluation, scheduling, and checkpoints | SQLite run records, live progress, comparisons, figures, notes, and model architecture |
 
 The training loop remains independent from the browser service. Runs are logged locally, while live status reporting is asynchronous and best-effort.
+
+## A combinatorial experiment space
+
+<p align="center">
+  <img src="docs/assets/images/experiment-space.svg" alt="A woven JimmyTorch experiment lattice: every dataset crosses every model, each pairing supports multiple runs, and flexible contours group them into experiments">
+</p>
+
+Datasets and models are reusable dimensions rather than one-to-one pairs. Combine them freely, repeat each pairing with different run configurations, and retain the results as comparable experiments.
 
 ## Experiment Manager
 

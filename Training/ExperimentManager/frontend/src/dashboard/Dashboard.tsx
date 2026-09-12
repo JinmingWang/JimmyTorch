@@ -42,7 +42,7 @@ export function Dashboard() {
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <span className="brand-mark">JT</span>
+          <img className="brand-mark" src="/jimmytorch-mark.svg" alt="" aria-hidden="true" />
           <div>
             <div className="brand-eyebrow">JimmyTorch</div>
             <div className="brand-title">Experiment Manager</div>

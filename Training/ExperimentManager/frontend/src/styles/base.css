@@ -114,16 +114,10 @@ body {
 }
 
 .brand-mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--cyan), var(--lime));
-  color: var(--bg-0);
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  font-family: var(--font-mono);
+  display: block;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
 }
 
 .brand-eyebrow {

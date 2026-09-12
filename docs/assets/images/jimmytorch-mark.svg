@@ -1,21 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
-  <title id="title">JimmyTorch mark</title>
-  <desc id="desc">A geometric J and T connected as a neural circuit.</desc>
+  <title id="title">JimmyTorch prism mark</title>
+  <desc id="desc">A compact isometric cube with M, D, and E on its faces for Models, Datasets, and Experiments.</desc>
   <defs>
-    <linearGradient id="bg" x1="18" y1="16" x2="143" y2="148" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8AF0CD"/>
-      <stop offset="1" stop-color="#159B78"/>
-    </linearGradient>
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <linearGradient id="background" x1="12" y1="8" x2="150" y2="154" gradientUnits="userSpaceOnUse"><stop stop-color="#07120F"/><stop offset="1" stop-color="#08141D"/></linearGradient>
+    <linearGradient id="model" x1="80" y1="16" x2="80" y2="80" gradientUnits="userSpaceOnUse"><stop stop-color="#7CB8FF" stop-opacity=".36"/><stop offset="1" stop-color="#315E91" stop-opacity=".2"/></linearGradient>
+    <linearGradient id="data" x1="24" y1="47" x2="80" y2="145" gradientUnits="userSpaceOnUse"><stop stop-color="#54E0B1" stop-opacity=".32"/><stop offset="1" stop-color="#1B6B55" stop-opacity=".17"/></linearGradient>
+    <linearGradient id="experiment" x1="136" y1="47" x2="80" y2="145" gradientUnits="userSpaceOnUse"><stop stop-color="#BFA0FF" stop-opacity=".32"/><stop offset="1" stop-color="#634C9A" stop-opacity=".17"/></linearGradient>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <rect x="8" y="8" width="144" height="144" rx="40" fill="#07110F" stroke="#2B5146" stroke-width="4"/>
-  <path d="M45 43h25v49c0 22-11 34-32 34h-7v-22h6c6 0 8-4 8-12V43Z" fill="url(#bg)"/>
-  <path d="M78 43h54v22h-15v61H92V65H78V43Z" fill="url(#bg)"/>
-  <g fill="#F5C76A" filter="url(#glow)">
-    <circle cx="31" cy="115" r="5"/><circle cx="132" cy="54" r="5"/><circle cx="105" cy="126" r="5"/>
+  <rect x="3" y="3" width="154" height="154" rx="32" fill="url(#background)" stroke="#315148" stroke-width="3"/>
+  <path d="M80 16 136 47 80 79 24 47Z" fill="url(#model)" stroke="#7CB8FF" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M24 47 80 79v66l-56-32Z" fill="url(#data)" stroke="#54E0B1" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M136 47 80 79v66l56-32Z" fill="url(#experiment)" stroke="#A88BEA" stroke-width="3.5" stroke-linejoin="round"/>
+  <g font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="31" font-weight="800" text-anchor="middle" stroke="#07110F" stroke-opacity=".35" stroke-width="1.5" paint-order="stroke fill">
+    <text x="80" y="60" fill="#B9DAFF">M</text>
+    <text x="52" y="113" fill="#A3F7DC">D</text>
+    <text x="108" y="113" fill="#DCCEFF">E</text>
   </g>
-  <path d="M31 115h17M132 54h-18M105 126v-18" stroke="#F5C76A" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="80" cy="79" r="4" fill="#F5C76A" filter="url(#glow)"/>
+  <circle cx="80" cy="79" r="1.5" fill="#FFFFFF"/>
 </svg>

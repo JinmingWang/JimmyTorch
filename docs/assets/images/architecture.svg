@@ -56,6 +56,7 @@
     <text x="815" y="575" fill="#EEF9F4" font-size="28" font-weight="700">Experiment Manager</text>
     <text x="815" y="613" fill="#9EB5AB" font-size="18">Live status, comparisons, figures, notes and architecture.</text>
   </g>
-  <path d="M345 484V422h535v-26" fill="none" stroke="#F5C76A" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M345 484V448h535v-48" fill="none" stroke="#F5C76A" stroke-width="4"/>
+  <path d="M880 382 862 418h36Z" fill="#F5C76A"/>
   <path d="M1210 382v84" fill="none" stroke="#54E0B1" stroke-width="4" marker-end="url(#arrow)"/>
 </svg>

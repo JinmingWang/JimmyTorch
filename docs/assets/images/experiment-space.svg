@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 820" role="img" aria-labelledby="title desc">
+  <title id="title">JimmyTorch combinatorial experiment space</title>
+  <desc id="desc">Four flowing dataset strands cross four model strands to create sixteen pairings. Small orbiting points at every crossing represent repeatable runs, while three softly glowing contours group arbitrary pairings into comparable experiments.</desc>
+  <defs>
+    <linearGradient id="background" x1="90" y1="40" x2="1320" y2="790" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07110F"/>
+      <stop offset=".5" stop-color="#0B1917"/>
+      <stop offset="1" stop-color="#08121B"/>
+    </linearGradient>
+    <radialGradient id="aurora" cx="0" cy="0" r="1" gradientTransform="translate(710 465) rotate(90) scale(420 720)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#214E42" stop-opacity=".42"/>
+      <stop offset=".55" stop-color="#102D2A" stop-opacity=".14"/>
+      <stop offset="1" stop-color="#07110F" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="datasetLine" x1="150" y1="0" x2="1180" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#54E0B1" stop-opacity=".25"/>
+      <stop offset=".16" stop-color="#54E0B1"/>
+      <stop offset=".84" stop-color="#54E0B1"/>
+      <stop offset="1" stop-color="#54E0B1" stop-opacity=".18"/>
+    </linearGradient>
+    <linearGradient id="modelLine" x1="0" y1="220" x2="0" y2="710" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7CB8FF" stop-opacity=".22"/>
+      <stop offset=".16" stop-color="#7CB8FF"/>
+      <stop offset=".84" stop-color="#7CB8FF"/>
+      <stop offset="1" stop-color="#7CB8FF" stop-opacity=".18"/>
+    </linearGradient>
+    <radialGradient id="nodeCore">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset=".28" stop-color="#C9FFF0"/>
+      <stop offset="1" stop-color="#54E0B1"/>
+    </radialGradient>
+    <filter id="softGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="wideGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+    <pattern id="microGrid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#86CBB8" stroke-opacity=".055"/>
+    </pattern>
+    <g id="runNode">
+      <ellipse rx="28" ry="14" fill="none" stroke="#C9FFF0" stroke-opacity=".28" stroke-width="1.5" transform="rotate(-18)"/>
+      <circle r="14" fill="#54E0B1" opacity=".11" filter="url(#softGlow)"/>
+      <circle r="6.5" fill="url(#nodeCore)"/>
+      <circle cx="-22" cy="1" r="3.2" fill="#F5C76A"/>
+      <circle cx="13" cy="-12" r="3.2" fill="#FF8066"/>
+      <circle cx="22" cy="1" r="3.2" fill="#BFA0FF"/>
+    </g>
+  </defs>
+
+  <rect width="1400" height="820" rx="34" fill="url(#background)"/>
+  <rect width="1400" height="820" rx="34" fill="url(#aurora)"/>
+  <rect x="28" y="28" width="1344" height="764" rx="25" fill="url(#microGrid)" stroke="#315148" stroke-opacity=".45"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Consolas, monospace">
+    <text x="72" y="74" fill="#8AF0CD" font-size="17" letter-spacing="4">JIMMYTORCH / EXPERIMENT SPACE</text>
+  </g>
+  <g font-family="system-ui, -apple-system, sans-serif">
+    <text x="72" y="123" fill="#EEF9F4" font-size="34" font-weight="760">One framework. A combinatorial research space.</text>
+    <text x="72" y="157" fill="#9EB5AB" font-size="18">Every dataset can meet every model; every pairing can branch into repeatable runs and comparable experiments.</text>
+  </g>
+
+  <!-- Soft, irregular experiment territories: arbitrary subsets of the lattice. -->
+  <path d="M273 285C363 226 526 241 603 305C671 362 643 438 565 478C478 522 315 493 255 410C220 362 229 314 273 285Z" fill="#BFA0FF" opacity=".075" filter="url(#wideGlow)"/>
+  <path d="M273 285C363 226 526 241 603 305C671 362 643 438 565 478C478 522 315 493 255 410C220 362 229 314 273 285Z" fill="#BFA0FF" fill-opacity=".025" stroke="#BFA0FF" stroke-opacity=".72" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>
+  <path d="M650 370C757 304 991 310 1094 388C1166 443 1137 547 1040 590C921 642 700 598 626 514C576 458 589 407 650 370Z" fill="#F5C76A" opacity=".06" filter="url(#wideGlow)"/>
+  <path d="M650 370C757 304 991 310 1094 388C1166 443 1137 547 1040 590C921 642 700 598 626 514C576 458 589 407 650 370Z" fill="#F5C76A" fill-opacity=".018" stroke="#F5C76A" stroke-opacity=".68" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>
+  <path d="M341 505C443 455 707 474 805 559C874 620 833 704 720 730C579 763 352 711 300 625C270 576 285 532 341 505Z" fill="#FF8066" opacity=".055" filter="url(#wideGlow)"/>
+  <path d="M341 505C443 455 707 474 805 559C874 620 833 704 720 730C579 763 352 711 300 625C270 576 285 532 341 505Z" fill="#FF8066" fill-opacity=".018" stroke="#FF8066" stroke-opacity=".64" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>
+
+  <!-- Dataset threads form one dimension of the product. -->
+  <g fill="none" stroke="url(#datasetLine)" stroke-width="3.5" stroke-linecap="round">
+    <path d="M150 340C405 300 802 374 1180 330"/>
+    <path d="M150 450C430 412 835 494 1180 445"/>
+    <path d="M150 560C405 515 810 594 1180 550"/>
+    <path d="M150 670C430 624 835 704 1180 660"/>
+  </g>
+  <g fill="none" stroke="#54E0B1" stroke-opacity=".16" stroke-width="11" filter="url(#softGlow)">
+    <path d="M150 340C405 300 802 374 1180 330"/>
+    <path d="M150 450C430 412 835 494 1180 445"/>
+    <path d="M150 560C405 515 810 594 1180 550"/>
+    <path d="M150 670C430 624 835 704 1180 660"/>
+  </g>
+
+  <!-- Model threads weave through every dataset thread. -->
+  <g fill="none" stroke="url(#modelLine)" stroke-width="3.5" stroke-linecap="round">
+    <path d="M390 220C358 370 430 520 400 710"/>
+    <path d="M610 220C578 370 650 520 620 710"/>
+    <path d="M830 220C798 370 870 520 840 710"/>
+    <path d="M1050 220C1018 370 1090 520 1060 710"/>
+  </g>
+  <g fill="none" stroke="#7CB8FF" stroke-opacity=".15" stroke-width="11" filter="url(#softGlow)">
+    <path d="M390 220C358 370 430 520 400 710"/>
+    <path d="M610 220C578 370 650 520 620 710"/>
+    <path d="M830 220C798 370 870 520 840 710"/>
+    <path d="M1050 220C1018 370 1090 520 1060 710"/>
+  </g>
+
+  <!-- Each intersection is a pairing; its orbiting particles are individual runs. -->
+  <g>
+    <use href="#runNode" transform="translate(377 328)"/>
+    <use href="#runNode" transform="translate(600 335)"/>
+    <use href="#runNode" transform="translate(818 348)"/>
+    <use href="#runNode" transform="translate(1031 347)"/>
+    <use href="#runNode" transform="translate(391 430)"/>
+    <use href="#runNode" transform="translate(618 449)"/>
+    <use href="#runNode" transform="translate(840 466)"/>
+    <use href="#runNode" transform="translate(1050 460)"/>
+    <use href="#runNode" transform="translate(408 540)"/>
+    <use href="#runNode" transform="translate(635 558)"/>
+    <use href="#runNode" transform="translate(856 572)"/>
+    <use href="#runNode" transform="translate(1067 565)"/>
+    <use href="#runNode" transform="translate(412 649)"/>
+    <use href="#runNode" transform="translate(631 669)"/>
+    <use href="#runNode" transform="translate(851 680)"/>
+    <use href="#runNode" transform="translate(1065 671)"/>
+  </g>
+
+  <!-- Dimension labels stay outside the field, keeping the lattice visual. -->
+  <g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" font-weight="700">
+    <g fill="#7CB8FF" text-anchor="middle">
+      <text x="390" y="205">MODEL A</text><text x="610" y="205">MODEL B</text>
+      <text x="830" y="205">MODEL C</text><text x="1050" y="205">MODEL D</text>
+    </g>
+    <g fill="#54E0B1" text-anchor="end">
+      <text x="130" y="345">DATASET 01</text><text x="130" y="455">DATASET 02</text>
+      <text x="130" y="565">DATASET 03</text><text x="130" y="675">DATASET 04</text>
+    </g>
+  </g>
+
+  <!-- Experiment labels float like map coordinates rather than containers. -->
+  <g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" font-weight="800" letter-spacing="1.5">
+    <g transform="translate(255 276)"><circle r="17" fill="#171D27" stroke="#BFA0FF"/><text x="27" y="5" fill="#DCCEFF">EXPERIMENT α</text></g>
+    <g transform="translate(1099 375)"><circle r="17" fill="#231F16" stroke="#F5C76A"/><text x="-27" y="5" fill="#FFE2A6" text-anchor="end">EXPERIMENT β</text></g>
+    <g transform="translate(292 634)"><circle r="17" fill="#251915" stroke="#FF8066"/><text x="27" y="5" fill="#FFB5A6">EXPERIMENT γ</text></g>
+  </g>
+
+  <!-- Compact visual key. -->
+  <g transform="translate(1138 64)" font-family="system-ui, -apple-system, sans-serif">
+    <path d="M0 0h177" stroke="#345D50"/>
+    <text y="25" fill="#78958A" font-size="12" font-weight="700" letter-spacing="2">READ THE FIELD</text>
+    <g transform="translate(0 50)"><circle r="5" fill="#C9FFF0"/><text x="17" y="5" fill="#BCD0C8" font-size="14">pairing</text></g>
+    <g transform="translate(0 80)"><ellipse rx="12" ry="6" fill="none" stroke="#C9FFF0" stroke-opacity=".45"/><circle cx="10" cy="-3" r="2.5" fill="#F5C76A"/><text x="17" y="5" fill="#BCD0C8" font-size="14">many runs</text></g>
+    <g transform="translate(0 110)"><path d="M-8 0C0-8 10-7 16 0C10 8 0 8-8 0Z" fill="none" stroke="#BFA0FF" stroke-dasharray="2 4"/><text x="27" y="5" fill="#BCD0C8" font-size="14">experiment</text></g>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Consolas, monospace">
+    <rect x="930" y="746" width="385" height="42" rx="21" fill="#0E211C" stroke="#315148"/>
+    <text x="1122.5" y="773" fill="#C9FFF0" text-anchor="middle" font-size="14" font-weight="700" letter-spacing="1">DATA × MODEL × RUN → EXPERIMENT SPACE</text>
+  </g>
+</svg>

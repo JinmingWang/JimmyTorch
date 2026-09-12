@@ -1,8 +1,6 @@
-<p align="center">
-  <img src="docs/assets/images/jimmytorch-mark.svg" width="124" alt="JimmyTorch 标志">
-</p>
-
-<h1 align="center">JimmyTorch</h1>
+<h1 align="center">
+  <img src="docs/assets/images/jimmytorch-tensor-prism.svg" width="240" alt="JimmyTorch 棱镜标志，代表数据集、模型与实验">
+</h1>
 
 <p align="center">
   一个紧凑的 PyTorch 科研框架，把数据集、模型和训练循环连接成可复现、可观察的实验。
@@ -32,6 +30,14 @@ JimmyTorch 通过少量明确的接口组织完整科研流程，而不是用庞
 | 字典式数据集接口、可复用模型组件 | 代码化配置、混合精度、评估、调度与检查点 | SQLite 实验记录、实时进度、跨实验对比、图像、笔记与模型结构 |
 
 训练循环不依赖浏览器服务。实验数据首先保存在本地，实时状态则通过异步、尽力而为的方式上报。
+
+## 灵活的实验组合空间
+
+<p align="center">
+  <img src="docs/assets/images/experiment-space.svg" alt="JimmyTorch 实验组合空间：每个数据集都可与每个模型组合，每个组合支持多次运行，并可形成多个实验">
+</p>
+
+数据集和模型是可以自由复用的维度，而不是固定的一对一关系。每种组合都可以采用不同配置反复运行，并作为可对比的实验结果保留下来。
 
 ## Experiment Manager
 

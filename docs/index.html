@@ -65,6 +65,13 @@
         <p>The core training loop does not depend on the browser service. <code>ExperimentLogger</code> writes locally to SQLite, while <code>ExperimentManagerClient</code> reports live state on a best-effort background thread.</p>
       </section>
 
+      <section class="section" aria-labelledby="experiment-space">
+        <p class="eyebrow">Combinatorial by design</p>
+        <h2 id="experiment-space">Datasets and models are dimensions, not fixed pairs</h2>
+        <div class="diagram"><img src="assets/images/experiment-space.svg" alt="A woven experiment lattice where dataset and model strands create pairings, orbiting particles represent repeated runs, and contours identify multiple experiments"></div>
+        <p>Reuse any dataset with any compatible model, branch a pairing into multiple configured runs, and keep those results in distinct, comparable experiments. The framework supports exploration without imposing a single pipeline topology.</p>
+      </section>
+
       <section class="section" aria-labelledby="areas">
         <p class="eyebrow">Documentation map</p>
         <h2 id="areas">Go directly to the work you are doing</h2>
