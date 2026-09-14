@@ -7,8 +7,10 @@
     <main class="docs-main" id="content">
       <header class="page-head"><p class="eyebrow">Reference / specialized modules</p><h1>Specialized utilities</h1><p class="lede">JimmyTorch includes focused helpers for diffusion processes, geospatial trajectories, general sequences, and sliced 3D geometry.</p></header>
 
-      <section aria-labelledby="diffusion"><h2 id="diffusion">DDPM and DDIM</h2>
-        <p><code>DiffusionModels</code> exports two schedule/process objects. Both support linear, quadratic, and logarithmic beta schedules; both accept predictions of <code>x0</code>, noise <code>epsilon</code>, or velocity <code>v</code> during denoising.</p>
+      <section aria-labelledby="diffusion"><h2 id="diffusion">Diffusion models and samplers</h2>
+        <p><code>DiffusionModels</code> exports DDPM, DDIM, DPM-Solver++, VP/VE Score-SDE processes, and a predictor-corrector sampler. The discrete models share schedule and prediction-conversion code; the continuous Score-SDE processes intentionally use a separate hierarchy.</p>
+        <h3>DDPM and DDIM</h3>
+        <p>DDPM and DDIM support linear, quadratic, logarithmic, and Improved-DDPM cosine schedules. Both accept predictions of <code>x0</code>, accumulated noise <code>epsilon_0_to_t</code>, or velocity <code>v</code> during denoising.</p>
         <pre><code>import torch
 from DiffusionModels import DDIM
 
@@ -17,23 +19,80 @@ process = DDIM(
     max_beta=2e-3,
     max_diffusion_step=100,
     device="cpu",
-    scale_mode="linear",
+    scale_mode="cosine",
     skip_step=5,
+    eta=0.0,
 )
 
 x0 = torch.randn(4, 32)
 t = torch.tensor([10, 20, 30, 40])
-noise = torch.randn_like(x0)
-xt = process.diffuse(x0, t, noise)
-velocity = process.computeVelocity(x0, noise, t)</code></pre>
+epsilon_0_to_t = torch.randn_like(x0)
+xt = process.diffuse(x0, t, epsilon_0_to_t)
+velocity = process.computeVelocity(x0, epsilon_0_to_t, t)</code></pre>
         <div class="table-wrap"><table><thead><tr><th>Method</th><th>DDPM</th><th>DDIM</th></tr></thead><tbody>
           <tr><td><code>diffuseStep</code> / <code>diffuse</code></td><td>Yes</td><td>Yes</td></tr>
-          <tr><td><code>denoiseStep</code> / <code>denoise</code></td><td>Stochastic reverse process</td><td>Deterministic skip-step process</td></tr>
+          <tr><td><code>denoiseStep</code> / <code>denoise</code></td><td>Stochastic adjacent reverse process</td><td>Skip-step process; deterministic at <code>eta=0</code></td></tr>
           <tr><td><code>computeVelocity</code></td><td>Yes</td><td>Yes</td></tr>
           <tr><td><code>extractNoise</code> / <code>extractVelocity</code></td><td>—</td><td>Yes</td></tr>
           <tr><td><code>combineNoise</code></td><td>Yes</td><td>—</td></tr>
         </tbody></table></div>
-        <p>The callable passed to <code>denoise</code> receives <code>(x_t, t, **kwargs)</code> and must return a three-item tuple <code>(x0_pred, epsilon_pred, v_pred)</code> with one meaningful prediction.</p>
+        <p>Noise names encode their dependency range: <code>epsilon_t_to_tp1</code> is the single-transition noise, <code>epsilon_0_to_t</code> is accumulated noise at the current level, and <code>epsilon_0_to_tp1</code> is the accumulated result after combining them. This distinction matters because the single-step and accumulated noises are dependent through the forward process.</p>
+        <p>The callable passed to <code>denoise</code> receives <code>(x_t, t, **kwargs)</code> and must return a three-item tuple <code>(x0_pred, epsilon_0_to_t_pred, v_pred)</code> with exactly one non-<code>None</code> prediction. The older <code>epsilon_pred</code> step keyword remains accepted for compatibility. Methods that sample noise accept a keyword-only PyTorch <code>generator</code> for reproducibility.</p>
+        <pre><code>forward: clean -- beta[0] --&gt; 0 -- beta[1] --&gt; ... --&gt; T-1
+reverse: T-1 --&gt; ... --&gt; 1 --&gt; 0 --&gt; clean_timestep (-1)</code></pre>
+        <div class="callout warning"><strong>Timestep endpoint changed.</strong>Index <code>0</code> is the first noisy state. The final transition is <code>0 → clean_timestep</code>, where <code>clean_timestep == -1</code>. Direct calls using <code>t_prev=0</code> receive a deprecation warning because older releases treated zero as clean data.</div>
+        <p>Primary references: <a href="https://arxiv.org/abs/2006.11239">DDPM</a>, <a href="https://arxiv.org/abs/2010.02502">DDIM</a>, and the <a href="https://arxiv.org/abs/2102.09672">Improved-DDPM cosine schedule</a>.</p>
+
+        <h3>DPM-Solver++</h3>
+        <p><code>DPMSolverPP</code> uses the same discrete schedule and three-item prediction callback as DDPM/DDIM. First-order updates are equivalent to deterministic DDIM. Second-order sampling reuses the preceding <code>x0</code> prediction as multistep history, so it still requires only one model evaluation at each selected noise level.</p>
+        <p>With half-log-SNR <code>lambda = log(alpha) - log(sigma)</code> and <code>h = lambda_previous - lambda_current</code>, the first-order data-prediction update is <code>x_previous = (sigma_previous / sigma_current) * x_current - alpha_previous * expm1(-h) * x0_pred</code>. The second-order update adds the multistep correction from the difference between the current and preceding data predictions.</p>
+        <pre><code>from DiffusionModels import DPMSolverPP
+
+solver = DPMSolverPP(
+    max_diffusion_step=1000,
+    num_inference_steps=20,
+    solver_order=2,
+    device="cpu",
+)
+
+def predict(x_t, batch_timesteps):
+    epsilon_0_to_t_pred = model(x_t, batch_timesteps)
+    return None, epsilon_0_to_t_pred, None
+
+# Generated schedule, e.g. 999 -&gt; ... -&gt; 0 -&gt; clean_timestep (-1)
+x0 = solver.denoise(initial_noise, predict)
+
+# An explicit schedule is also accepted and must start at T-1 and end at 0.
+x0 = solver.denoise(initial_noise, predict, timesteps=[999, 749, 499, 249, 0])</code></pre>
+        <p>The stateless <code>denoiseStep</code> method is first order because a second-order multistep update requires a previous model prediction. The final <code>0 → clean_timestep</code> transition returns the current data prediction directly, avoiding the infinite clean-endpoint log-SNR. Reference: <a href="https://arxiv.org/abs/2211.01095">DPM-Solver++</a>.</p>
+
+        <h3>Score-SDE</h3>
+        <p><code>VPSDE</code> and <code>VESDE</code> model continuous time in <code>[0, 1]</code>. They expose analytic drift/diffusion and marginal distributions, perturbation sampling, score targets, terminal-prior sampling, and convenience denoising. For <code>x_t = mean(t) + std(t) * epsilon_0_to_t</code>, <code>computeScoreTarget</code> returns <code>-epsilon_0_to_t / std(t)</code>.</p>
+        <p>VP uses <code>beta(t) = beta_min + t * (beta_max - beta_min)</code>, drift <code>-0.5 * beta(t) * x</code>, and diffusion <code>sqrt(beta(t))</code>. VE uses zero drift, <code>sigma(t) = sigma_min * (sigma_max / sigma_min)^t</code>, and diffusion <code>sigma(t) * sqrt(2 * log(sigma_max / sigma_min))</code>.</p>
+        <pre><code>from DiffusionModels import PredictorCorrectorSampler, VPSDE
+
+sde = VPSDE(beta_min=0.1, beta_max=20.0, device="cpu")
+epsilon_0_to_t = torch.randn_like(x0)
+continuous_timesteps = torch.rand(x0.shape[0]) * 0.999 + 0.001
+x_t = sde.diffuse(x0, continuous_timesteps, epsilon_0_to_t)
+score_target = sde.computeScoreTarget(epsilon_0_to_t, continuous_timesteps)
+
+sampler = PredictorCorrectorSampler(
+    sde,
+    num_steps=1000,
+    corrector_steps=1,  # use 0 for predictor-only sampling
+    snr=0.16,
+    epsilon=1e-3,
+)
+
+def score_func(noisy_samples, continuous_timesteps):
+    return score_model(noisy_samples, continuous_timesteps)
+
+initial_noise = sde.priorSampling((4, 32))
+x0 = sampler.denoise(initial_noise, score_func)</code></pre>
+        <pre><code>forward perturbation: 0 (data) ------------------------------&gt; 1 (prior)
+reverse integration:  1 -- Euler/Langevin steps --&gt; epsilon &gt; 0</code></pre>
+        <p>The positive terminal <code>epsilon</code> avoids the singular score limit at zero. It is a scalar time cutoff, not a noise tensor; perturbation noise retains the range-explicit name <code>epsilon_0_to_t</code>. The score callback always receives a batch-shaped continuous timestep tensor. All internal random draws accept a keyword-only PyTorch <code>generator</code> for reproducibility. Reference: <a href="https://arxiv.org/abs/2011.13456">Score-Based Generative Modeling through SDEs</a>.</p>
       </section>
 
       <section class="section" aria-labelledby="trajectories"><h2 id="trajectories">Trajectory utilities</h2>

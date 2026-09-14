@@ -63,6 +63,19 @@
         </tbody></table></div>
       </section>
 
+      <section class="section" aria-labelledby="diffusion"><h2 id="diffusion">Diffusion processes</h2>
+        <div class="table-wrap"><table><thead><tr><th>API</th><th>Signature or members</th><th>Purpose</th></tr></thead><tbody>
+          <tr><td><code>DDPM</code></td><td><code>(min_beta=1e-4, max_beta=2e-3, max_diffusion_step=100, device="cuda", scale_mode="linear")</code>; <code>diffuseStep</code>, <code>diffuse</code>, <code>computeVelocity</code>, <code>denoiseStep</code>, <code>denoise</code>, <code>combineNoise</code></td><td>Forward Gaussian diffusion and adjacent ancestral reverse sampling.</td></tr>
+          <tr><td><code>DDIM</code></td><td><code>(..., skip_step=1, eta=0.0)</code>; <code>diffuseStep</code>, <code>diffuse</code>, <code>denoiseStep</code>, <code>denoise</code>, <code>extractNoise</code>, <code>computeVelocity</code>, <code>extractVelocity</code></td><td>Skipped implicit sampling, deterministic at <code>eta=0</code> and stochastic for positive <code>eta</code>.</td></tr>
+          <tr><td><code>DPMSolverPP</code></td><td><code>(..., num_inference_steps=None, solver_order=2)</code>; <code>diffuseStep</code>, <code>diffuse</code>, <code>computeVelocity</code>, <code>samplingTimesteps</code>, <code>denoiseStep</code>, <code>denoise</code></td><td>Deterministic first- or second-order multistep data-prediction solver over generated or explicit schedules.</td></tr>
+          <tr><td><code>VPSDE</code></td><td><code>(beta_min=0.1, beta_max=20.0, device="cuda")</code>; <code>driftDiffusion</code>, <code>marginalProb</code>, <code>diffuse</code>, <code>computeScoreTarget</code>, <code>priorSampling</code>, <code>denoiseStep</code>, <code>denoise</code></td><td>Continuous-time variance-preserving Score-SDE process.</td></tr>
+          <tr><td><code>VESDE</code></td><td><code>(sigma_min=0.01, sigma_max=50.0, device="cuda")</code>; same process methods as <code>VPSDE</code></td><td>Continuous-time variance-exploding Score-SDE process.</td></tr>
+          <tr><td><code>PredictorCorrectorSampler</code></td><td><code>(sde, num_steps=1000, corrector_steps=1, snr=0.16, epsilon=1e-3)</code>; <code>denoiseStep</code>, <code>denoise</code></td><td>Euler-Maruyama reverse-SDE prediction with optional Langevin correction.</td></tr>
+          <tr><td><code>clean_timestep</code></td><td><code>-1</code></td><td>Explicit clean-data endpoint after schedule index <code>0</code>.</td></tr>
+        </tbody></table></div>
+        <p>Discrete schedules are <code>linear</code>, <code>quadratic</code>, <code>log</code>, or <code>cosine</code>. Discrete prediction callbacks return exactly one of <code>x0_pred</code>, accumulated <code>epsilon_0_to_t_pred</code>, or <code>v_pred</code> in a three-item tuple. Single-step noise is named <code>epsilon_t_to_tp1</code>; accumulated noise uses <code>epsilon_0_to_t</code> or <code>epsilon_0_to_tp1</code>. Score-SDE callbacks instead return a score tensor from <code>(noisy_samples, continuous_timesteps, **kwargs)</code>. See <a href="utilities.html#diffusion">Specialized utilities</a> for equations, examples, migration notes, and references.</p>
+      </section>
+
       <section class="section" aria-labelledby="monitor"><h2 id="monitor">Experiment Manager package</h2>
         <div class="table-wrap"><table><thead><tr><th>API</th><th>Role</th></tr></thead><tbody>
           <tr><td><code>ExperimentLogger</code></td><td>Per-run SQLite writer for scalars, figures, metadata, and lifecycle status.</td></tr>

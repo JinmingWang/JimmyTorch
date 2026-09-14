@@ -67,7 +67,7 @@ python main.py
 ```text
 Datasets/                     批处理接口与数据预处理工具
 Models/                       模型基类、网络层、损失和注意力模块
-DiffusionModels/              DDPM 与 DDIM 过程
+DiffusionModels/              DDPM、DDIM、Score-SDE 与 DPM-Solver++ 过程
 Training/ExperimentManager/   本地记录、实时客户端、服务端与可视化界面
 JimmyExperiment.py            组件构建与实验生命周期
 JimmyTrainer.py               训练、评估、调度与检查点

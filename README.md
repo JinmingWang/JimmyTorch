@@ -67,7 +67,7 @@ The repository is currently used directly from source and does not provide a pin
 ```text
 Datasets/                     Batch contracts and preprocessing utilities
 Models/                       Model base class, layers, losses, and attention
-DiffusionModels/              DDPM and DDIM processes
+DiffusionModels/              DDPM, DDIM, Score-SDE, and DPM-Solver++ processes
 Training/ExperimentManager/   Local logging, live client, server, and dashboard
 JimmyExperiment.py            Component assembly and run lifecycle
 JimmyTrainer.py               Training, evaluation, scheduling, and checkpoints

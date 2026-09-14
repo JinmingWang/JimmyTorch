@@ -8,7 +8,7 @@ The framework source is anchored by:
 
 - `Datasets/`: base batching contract and specialized preprocessing.
 - `Models/`: base model contract, layers, losses, attention, and cost helpers.
-- `DiffusionModels/`: DDPM and DDIM processes.
+- `DiffusionModels/`: discrete DDPM/DDIM/DPM-Solver++ processes plus continuous VP/VE Score-SDE sampling.
 - `Training/`: moving averages, optional TensorBoard support, and Experiment Manager package.
 - `DynamicConfig.py`: deferred construction.
 - `JimmyExperiment.py`: experiment assembly and directory creation.

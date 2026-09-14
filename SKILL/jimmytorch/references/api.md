@@ -29,8 +29,14 @@ Use this as a name index, then inspect the named source before changing behavior
 
 - `DDPM`: `diffuseStep`, `diffuse`, `computeVelocity`, `denoiseStep`, `denoise`, `combineNoise`
 - `DDIM`: `diffuseStep`, `diffuse`, `denoiseStep`, `denoise`, `extractNoise`, `computeVelocity`, `extractVelocity`
+- `DPMSolverPP`: `diffuseStep`, `diffuse`, `computeVelocity`, `samplingTimesteps`, `denoiseStep`, `denoise`
+- `VPSDE`: `driftDiffusion`, `marginalProb`, `diffuse`, `computeScoreTarget`, `priorSampling`, `denoiseStep`, `denoise`
+- `VESDE`: `driftDiffusion`, `marginalProb`, `diffuse`, `computeScoreTarget`, `priorSampling`, `denoiseStep`, `denoise`
+- `PredictorCorrectorSampler`: `denoiseStep`, `denoise`
 
-Both denoisers expect the prediction callback to return `(x0_pred, epsilon_pred, v_pred)`.
+The discrete denoisers expect the prediction callback to return `(x0_pred, epsilon_0_to_t_pred, v_pred)` with exactly one non-`None` item. The `epsilon_pred` step keyword remains a compatibility alias. Existing camelCase method names remain canonical. `clean_timestep == -1` identifies the clean endpoint; schedule index `0` is the first noisy state. DDIM accepts `eta` in `[0, 1]`, with deterministic sampling at `eta=0`. DPM-Solver++ supports solver orders 1 and 2, generated or explicit descending timestep schedules, and uses a first-order data prediction for the final `0 -> clean_timestep` transition.
+
+Score-SDE callbacks use `score_func(noisy_samples, continuous_timesteps, **kwargs) -> Tensor`, where the timestep tensor has shape `(batch,)` and values in `[epsilon, 1]`. The scalar `epsilon` is the terminal time cutoff, not a noise tensor. `PredictorCorrectorSampler` uses Euler-Maruyama prediction and zero or more Langevin correction steps. VP/VE perturbation helpers use `epsilon_0_to_t` for accumulated perturbation noise. Methods that sample noise accept an optional keyword-only `generator`.
 
 ## Training and monitoring
 
