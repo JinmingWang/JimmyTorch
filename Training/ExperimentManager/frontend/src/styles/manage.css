@@ -163,6 +163,23 @@
   animation: livePulse 1.8s ease-in-out infinite;
 }
 
+.tree-run-tooltip {
+  position: fixed;
+  z-index: 1000;
+  min-width: 150px;
+  padding: 0.35rem 0.5rem;
+  pointer-events: none;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 @keyframes livePulse {
   0%, 100% { background: rgba(85, 222, 208, 0.08); }
   50% { background: rgba(85, 222, 208, 0.22); }
@@ -200,11 +217,8 @@
 }
 
 .color-picker-popover {
-  position: absolute;
-  z-index: 20;
-  right: 0;
-  top: 100%;
-  margin-top: 0.25rem;
+  position: fixed;
+  z-index: 1000;
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 6px;

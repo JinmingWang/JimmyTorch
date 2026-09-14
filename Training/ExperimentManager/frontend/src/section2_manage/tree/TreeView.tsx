@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import type { TreeResponse } from "../../api/rest";
+import { createPortal } from "react-dom";
+import type { RunNode, TreeResponse } from "../../api/rest";
 import { setColor, setStarred } from "../../api/rest";
 import {
   effectiveColor,
@@ -15,6 +16,23 @@ interface Props {
 }
 
 type CheckState = "unchecked" | "partial" | "checked";
+
+interface RunTooltip {
+  createdAt: number | null;
+  x: number;
+  y: number;
+}
+
+function runsByStartTime(runs: Record<string, RunNode>): [string, RunNode][] {
+  return Object.entries(runs).sort(([nameA, runA], [nameB, runB]) => {
+    if (runA.created_at == null && runB.created_at == null) {
+      return nameA.localeCompare(nameB);
+    }
+    if (runA.created_at == null) return 1;
+    if (runB.created_at == null) return -1;
+    return runB.created_at - runA.created_at || nameA.localeCompare(nameB);
+  });
+}
 
 function computeGroupState(memberKeys: string[], checked: Set<string>): CheckState {
   let on = 0;
@@ -34,6 +52,7 @@ export function TreeView({ tree }: Props) {
   const liveStatus = useLiveStore((s) => s.snapshot?.status);
   const [query, setQuery] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [runTooltip, setRunTooltip] = useState<RunTooltip | null>(null);
 
   const allRuns = useMemo(() => iterRuns(tree), [tree]);
 
@@ -111,7 +130,7 @@ export function TreeView({ tree }: Props) {
                         onToggle={() => toggleGroup(modelGroupKey)}
                       />
                       {!modelCollapsed && <ul>
-                        {Object.entries(runs).map(([runName, node]) => {
+                        {runsByStartTime(runs).map(([runName, node]) => {
                           const key = keyOf({ dataset, model, run_name: runName });
                           if (q && !matches(dataset) && !matches(model) && !matches(runName)) return null;
                           const isSelected = selectedKey === key;
@@ -129,6 +148,17 @@ export function TreeView({ tree }: Props) {
                                 className="tree-row tree-row-leaf"
                                 style={{ paddingLeft: `${2 * 20}px` }}
                                 onClick={() => select(key)}
+                                onMouseEnter={(event) => setRunTooltip({
+                                  createdAt: node.created_at,
+                                  x: event.clientX,
+                                  y: event.clientY,
+                                })}
+                                onMouseMove={(event) => setRunTooltip({
+                                  createdAt: node.created_at,
+                                  x: event.clientX,
+                                  y: event.clientY,
+                                })}
+                                onMouseLeave={() => setRunTooltip(null)}
                               >
                                 <input
                                   type="checkbox"
@@ -173,7 +203,27 @@ export function TreeView({ tree }: Props) {
           );
         })}
       </ul>
+      {runTooltip && <RunStartTooltip tooltip={runTooltip} />}
     </div>
+  );
+}
+
+function RunStartTooltip({ tooltip }: { tooltip: RunTooltip }) {
+  const date = tooltip.createdAt == null
+    ? "Start date unavailable"
+    : new Date(tooltip.createdAt * 1000).toLocaleDateString();
+  const time = tooltip.createdAt == null
+    ? "Start time unavailable"
+    : new Date(tooltip.createdAt * 1000).toLocaleTimeString();
+  const left = Math.min(tooltip.x + 14, window.innerWidth - 190);
+  const top = Math.min(tooltip.y + 16, window.innerHeight - 64);
+
+  return createPortal(
+    <div className="tree-run-tooltip" style={{ left: Math.max(8, left), top: Math.max(8, top) }} role="tooltip">
+      <div>{date}</div>
+      <div>{time}</div>
+    </div>,
+    document.body,
   );
 }
 
