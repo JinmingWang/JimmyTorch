@@ -26,6 +26,7 @@ from aiohttp import WSMsgType, web
 
 from . import storage
 from .constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT, RUN_DB_FILENAME
+from .comparison import comparison_rows
 from .global_settings import GlobalSettings
 from .run_scanner import (
     parse_hparams,
@@ -337,6 +338,14 @@ async def handle_tree(request: web.Request) -> web.Response:
     if not tree.get("datasets"):
         tree = await asyncio.get_event_loop().run_in_executor(None, scan_tree, _runs_root(request))
     return web.json_response(tree)
+
+
+async def handle_comparison(request: web.Request) -> web.Response:
+    root = _runs_root(request)
+    datasets = request.app["watcher"].snapshot()["datasets"]
+    if not datasets:
+        datasets = (await asyncio.to_thread(scan_tree, root))["datasets"]
+    return web.json_response(await asyncio.to_thread(comparison_rows, root, datasets))
 
 
 async def handle_run_summary(request: web.Request) -> web.Response:
@@ -713,6 +722,7 @@ def build_app(runs_root: Optional[Path] = None) -> web.Application:
 
     # tree + per-run
     app.router.add_get("/api/tree", handle_tree)
+    app.router.add_get("/api/comparison", handle_comparison)
     app.router.add_get("/api/runs/{dataset}/{model}/{run}/summary", handle_run_summary)
     app.router.add_get("/api/runs/{dataset}/{model}/{run}/scalars", handle_run_scalars)
     app.router.add_get("/api/runs/{dataset}/{model}/{run}/figures", handle_run_figures_index)
@@ -732,6 +742,10 @@ def build_app(runs_root: Optional[Path] = None) -> web.Application:
     # static + SPA
     app.router.add_get("/", handle_root)
     if STATIC_ROOT.is_dir():
+        async def handle_mark(request: web.Request) -> web.FileResponse:
+            return web.FileResponse(STATIC_ROOT / "jimmytorch-mark.svg")
+
+        app.router.add_get("/jimmytorch-mark.svg", handle_mark)
         app.router.add_static("/assets", STATIC_ROOT / "assets")
         # Fallback: any unknown non-API top-level path returns index.html for SPA routing.
         async def spa_catch_all(request: web.Request) -> web.Response:

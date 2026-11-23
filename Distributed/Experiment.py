@@ -1,5 +1,6 @@
 from .Trainer import DistributedJimmyTrainer
 from Training.ExperimentManager import ExperimentLogger, DEFAULT_SERVER_PORT
+from Training.ExperimentManager.model_profile import record_model_profile
 import torch
 from DynamicConfig import DynamicConfig
 from datetime import datetime
@@ -20,6 +21,7 @@ class DistributedJimmyExperiment:
     """
 
     def __init__(self, comments: str, dir_name: str = None):
+        self.profile_after_training = True
         self.comments = comments
         self.dir_name = dir_name if dir_name is not None else datetime.now().strftime("%y%m%d_%H%M%S")
 
@@ -136,6 +138,7 @@ class DistributedJimmyExperiment:
                 exp_logger = ExperimentLogger(log_dir, dataset_name, model_name, self.dir_name)
                 exp_logger.set_comments(self.comments)
                 exp_logger.set_model_arch(str(model))
+                exp_logger.log_parameter_count(model)
                 exp_logger.log_hparams({
                     "dataset": str(self.dataset_cfg), "model": str(self.model_cfg),
                     "lr_scheduler": str(self.lr_scheduler_cfg),
@@ -154,6 +157,8 @@ class DistributedJimmyExperiment:
             trainer = context.runAll(lambda: self.trainer_type(**trainer_kwargs))
             trainer_started = True
             trainer.start()
+            if context.is_primary and self.profile_after_training:
+                record_model_profile(self.model_cfg, model, eval_set, log_dir, save_dir)
             return trainer
         except BaseException as error:
             if exp_logger is not None and not trainer_started:

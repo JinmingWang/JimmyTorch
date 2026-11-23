@@ -7,10 +7,10 @@
     <main class="docs-main" id="content">
       <header class="page-head"><p class="eyebrow">Core workflow / observability</p><h1>Experiment Manager</h1><p class="lede">A standalone local service combines one live training feed with durable run history. It is an observer and operator interface, not the owner of the training loop.</p></header>
 
-      <div class="screenshot"><img src="assets/images/experiment-manager.png" alt="Sanitized JimmyTorch Experiment Manager interface showing live progress cards and comparison panels"></div>
-
       <section class="section" aria-labelledby="start"><h2 id="start">Start the service</h2>
-        <pre><code>python -m Training.ExperimentManager</code></pre>
+        <p>Install <code>aiohttp</code> in the environment that hosts the dashboard, then start the service.</p>
+        <pre><code>python -m pip install aiohttp
+python -m Training.ExperimentManager</code></pre>
         <p>The default host is <code>127.0.0.1</code>, the starting port is <code>9000</code>, and the default run root is <code>./Runs</code> relative to the command's working directory.</p>
         <pre><code>python -m Training.ExperimentManager \
   --runs-root /path/to/project/Runs \
@@ -29,19 +29,86 @@
       </section>
 
       <section class="section" aria-labelledby="live"><h2 id="live">Current training</h2>
-        <p>The live panel reports overall and epoch progress, elapsed and remaining time, throughput, current metrics, applied/pending learning rate, and best-effort CPU/GPU utilization. System fields are omitted when optional platform libraries are unavailable.</p>
-        <p>A positive finite learning-rate request entered in the dashboard is polled by the client, consumed immediately before the next training batch, and applied to the optimizer's first parameter group. The UI then receives the applied value.</p>
-        <div class="callout warning"><strong>A learning-rate change affects the run.</strong>Treat the control as an operational action, not a visualization setting. The scheduler may alter the rate again on its normal epoch cadence.</div>
+        <p>The dashboard screenshots use example runs and simulated telemetry. Select any image to see it at full size.</p>
+        <figure class="guide-figure">
+          <a href="assets/images/experiment-manager/progress.webp"><img src="assets/images/experiment-manager/progress.webp" width="1524" height="612" loading="lazy" alt="Current Training shows 1,260 of 3,000 steps overall and 60 of 300 steps in epoch 5."></a>
+          <figcaption>The run is 42% complete. The second bar starts over each epoch, so it reads 20%. Throughput below the bars shows training iterations per second.</figcaption>
+        </figure>
+        <h3>Change the learning rate</h3>
+        <div class="guide-detail">
+          <figure class="guide-figure">
+            <a href="assets/images/experiment-manager/learning-rate.webp"><img src="assets/images/experiment-manager/learning-rate.webp" width="520" height="282" loading="lazy" alt="Learning Rate panel with Applied and Pending values above the input and Apply button."></a>
+            <figcaption>The run is using 0.001. The requested rate of 0.0005 is still pending.</figcaption>
+          </figure>
+          <div><p>Enter a positive finite value and choose <strong>Apply</strong>. The client polls for the request and updates the optimizer’s first parameter group just before the next training batch.</p>
+          <p>Watch <strong>Applied</strong> for confirmation. The scheduler may change the rate again on its usual epoch cadence.</p></div>
+        </div>
       </section>
 
       <section class="section" aria-labelledby="history"><h2 id="history">Experiment management</h2>
-        <div class="card-grid">
-          <article class="card"><h3>Run tree</h3><p>Browse <code>dataset / model / run</code>, filter runs, select several for comparison, star important work, and assign colors.</p></article>
-          <article class="card"><h3>Scalar curves</h3><p>Compare tagged metrics across selected runs, adjust curve settings, inspect value ranges, and expand individual charts.</p></article>
-          <article class="card"><h3>Figures and summaries</h3><p>Review stored matplotlib figures, run comments, hyperparameters, status, timestamps, and checkpoint availability.</p></article>
-          <article class="card"><h3>Architecture view</h3><p>Open a run's stored model text as an interactive module diagram when architecture metadata exists.</p></article>
+        <h3>Choose runs in the tree</h3>
+        <div class="guide-detail">
+          <figure class="guide-figure">
+            <a href="assets/images/experiment-manager/run-tree.webp"><img src="assets/images/experiment-manager/run-tree.webp" width="520" height="384" loading="lazy" alt="MNIST run tree with baseline and lower-rate checked and the baseline row highlighted."></a>
+            <figcaption>Two runs contribute curves. The highlighted row opens the summary for <strong>baseline</strong>.</figcaption>
+          </figure>
+          <div><p>Expand a dataset and model, then check the runs you want to plot. The dot beside each name sets its curve color. Use the star to mark a run or the filter to find it again.</p>
+          <p>Click a run’s name to inspect its comments, hyperparameters, status, timestamps, and run directory. Choose <strong>Architecture</strong> in the summary to explore its module diagram when a model description is available.</p></div>
         </div>
+        <h3>Read the curves</h3>
+        <figure class="guide-figure">
+          <a href="assets/images/experiment-manager/curves.webp"><img src="assets/images/experiment-manager/curves.webp" width="1312" height="972" loading="lazy" alt="Expanded Eval/Main chart with two evaluation-loss curves and a table matching each color to its run."></a>
+          <figcaption>Follow a run’s color from the tree to its curve. Move the pointer across the plot to read both values in the <strong>Cursor</strong> column at the same step.</figcaption>
+        </figure>
+        <p>Use the gear to adjust curve settings or the diagonal arrow to expand the chart. The <strong>Figures</strong> section below the curves displays matplotlib figures saved by the checked runs.</p>
         <p>The service also watches the run directory and broadcasts tree changes to connected browsers. Older folders without a SQLite record are scanned as legacy runs with a reduced metadata surface.</p>
+      </section>
+
+      <section class="section" aria-labelledby="comparison"><h2 id="comparison">Compare models across runs</h2>
+        <p>Open <strong>Compare models</strong> on the dashboard. Each dot represents one training directory and uses its tree color. The plot starts with all runs. Choose <strong>Checked runs</strong> to use the tree checkboxes.</p>
+        <p>Choose a source and field independently for each axis. For example, set X to <strong>Hyperparameter → model.optimizer_args.lr</strong> and Y to <strong>Metric → Eval/Main → Lowest</strong> to compare configured learning rates against the lowest saved evaluation loss.</p>
+        <figure class="guide-figure">
+          <a href="assets/images/experiment-manager/comparison.webp"><img src="assets/images/experiment-manager/comparison.webp" width="1394" height="1308" loading="lazy" alt="Run comparison with learning rate on X and lowest Eval/Main on Y. Three colored dots appear in the plot."></a>
+          <figcaption>Here the lowest dot belongs to the example run configured with a learning rate of 0.001. Click a dot to open that run’s summary.</figcaption>
+        </figure>
+        <div class="table-wrap"><table><thead><tr><th>Field</th><th>How the dashboard obtains it</th></tr></thead><tbody>
+          <tr><td>Parameters</td><td>Total parameter elements, including frozen parameters. The standard experiment records this once during setup, on rank zero for distributed runs. Older runs and lazy models can supply an offline profile.</td></tr>
+          <tr><td>Training throughput (it/s)</td><td>New completed runs use the final logged training step divided by elapsed time from logger setup to close. This includes evaluation and checkpointing. Older and active runs use the change in step divided by elapsed time between two distinct retained <code>LR</code> samples.</td></tr>
+          <tr><td>Model file size (MiB)</td><td>On-disk size of <code>last.pth</code> in the run folder, falling back to <code>best.pth</code>. Completed profiles also record the size when checkpoints and logs use separate directories. One MiB equals 1,048,576 bytes.</td></tr>
+          <tr><td>Forward MACs and FLOPs</td><td>With <code>calflops</code> installed, the standard experiments profile the model after successful training on a single evaluation example. Compare runs with matching input shapes. Counts cover the operators that calflops recognizes.</td></tr>
+          <tr><td>Metric</td><td>Any recorded scalar tag, including custom training and evaluation metrics. Last uses the greatest recorded step and the latest insertion at that step. Lowest and Highest use all finite samples retained in SQLite. Storage sampling can discard earlier extrema.</td></tr>
+          <tr><td>Hyperparameter</td><td>Numeric settings from saved run configuration, including nested paths. Configured optimizer learning rate and the <code>LR</code> scalar history can be selected independently.</td></tr>
+        </tbody></table></div>
+        <p>Hover over the plot to read both coordinates. Hover over a dot to see its training directory. Click it to highlight the run and open its summary. Click again to cycle through runs at identical coordinates. Click empty space to clear the highlight while keeping the run summary open. Runs missing either value are excluded from the plot and counted above it. Use <strong>Refresh</strong> after training advances or after adding a profile. Select <strong>← Dashboard</strong> to return.</p>
+        <h3>Automatic profiling after training</h3>
+        <p>The standard experiments rebuild an eager CPU model using the trained weights. They run it in evaluation mode on one example with gradients disabled. Distributed training profiles only on global rank zero. The run database stores the counts, input tensor shapes, and batch size under <code>model_profile</code>.</p>
+        <p>For a model with one batched tensor named <code>input</code> or <code>data</code>, the default adapter supplies the forward argument. Override <code>getProfileInputs</code> for different keys, preprocessing, multiple arguments, or keyword arguments. The evaluation dataset receives a batch size of one. For example:</p>
+        <pre><code>def getProfileInputs(self, batch):
+    return (batch["tokens"],), {"mask": batch["attention_mask"]}</code></pre>
+        <p>If the example or model cannot run on CPU, the profiler records the reason and the training result remains available. Set <code>experiment.profile_after_training = False</code> to skip the extra model allocation and forward pass. For older runs, or models that require another device or profiler, supply a profile file.</p>
+        <details><summary>Supply forward operation counts for a run</summary>
+          <p>In a separate Python process, construct the model with the configuration used for that run. Profile a representative forward pass and save the raw counts in <code>model_profile.json</code> beside the run database or checkpoint. This example uses one MNIST input and the bundled SampleCNN. Adapt the model, input, and directory for your experiment.</p>
+          <pre><code>from pathlib import Path
+import json
+import torch
+from calflops import calculate_flops
+from Models import SampleCNN
+
+run_dir = Path("Runs/MNISTSampleDataset/SampleCNN/YOUR_RUN")
+model = SampleCNN().eval()
+with torch.no_grad():
+    flops, macs, _ = calculate_flops(
+        model, args=[torch.zeros(1, 1, 28, 28)], output_as_string=False,
+        print_results=False, print_detailed=False,
+    )
+profile = {
+    "parameters": sum(p.numel() for p in model.parameters()),
+    "forward_macs": macs,
+    "forward_flops": flops,
+}
+(run_dir / "model_profile.json").write_text(json.dumps(profile), encoding="utf-8")</code></pre>
+          <p>Counts reflect the operators supported by the chosen profiler and the path taken by that input. You can also supply numeric counts from your own profiler using the same JSON keys. Each field is optional.</p>
+        </details>
       </section>
 
       <section class="section" aria-labelledby="persistence"><h2 id="persistence">Persistence layout</h2>
@@ -60,6 +127,10 @@
         <p>Then open <code>http://127.0.0.1:9000</code> locally. If you deliberately bind to a non-loopback address, protect access at the network layer because the interface includes mutation endpoints such as learning-rate control and run management.</p>
       </section>
       <section class="section" aria-labelledby="gpus"><h2 id="gpus">All-GPU monitoring</h2>
+        <figure class="guide-figure">
+          <a href="assets/images/experiment-manager/gpus.webp"><img src="assets/images/experiment-manager/gpus.webp" width="1324" height="408" loading="lazy" alt="GPU 0 shows Training · rank 0 at 82% utilization. GPU 1 shows Not assigned to this run at 8%."></a>
+          <figcaption>Read the assignment badge before interpreting utilization. GPU 1 shows activity even though this example run uses only GPU 0.</figcaption>
+        </figure>
         <p>The live panel shows every GPU detected by NVIDIA NVML, including GPUs not assigned to this run. Each card shows the physical device index and name, assigned training ranks, utilization, and used/total memory. GPU identities are matched by UUID, so CUDA visibility/reordering does not change the displayed physical identity. An unresolved identity is labeled “Assignment unknown”.</p>
         <p>Install <code>nvidia-ml-py</code> for telemetry. Readings represent whole-device usage, including other processes. Missing individual readings appear as “—”; unavailable telemetry and no detected devices have distinct messages. Reporting is best-effort: the legacy client samples its own machine, while distributed runs use one reporter per machine (local rank 0), without training collectives. A disconnected snapshot retains the existing connection warning.</p>
         <p>The live HTTP/WebSocket payload includes <code>system.gpus</code>: an array of <code>id</code>, <code>index</code>, <code>name</code>, <code>utilization</code> (percent), <code>memory_used</code>/<code>memory_total</code> (bytes), and <code>training_ranks</code>. A null list means telemetry unavailable; an empty list means no detected GPUs. Null assignments mean unresolved identity; empty assignments mean not assigned. Legacy first-device scalar fields remain available, and the UI supports old clients. GPU histories are not persisted.</p><p>Distributed snapshots additionally include <code>nodes</code>, with <code>node_id</code>, <code>hostname</code>, <code>ranks</code>, <code>system</code>, <code>received_at</code>, and <code>connected</code>. Cards are grouped by machine. Missing reports become stale after max(10 seconds, 3 × reporting interval); stale telemetry is not proof of a training failure. Only global rank 0 controls overall progress/status. <code>system</code> retains primary-machine readings for older clients. Node reports use <code>/api/ingest/node</code> and a unique run ID, so old runs cannot overwrite new snapshots. Run the server on the primary machine and set <code>constants["progress_host"]</code> to its reachable address on every worker. See the <a href="distributed.html">distributed guide</a>.</p>

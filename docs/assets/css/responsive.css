@@ -21,6 +21,15 @@
 
   .js .sidebar.is-open {
     display: block;
+    position: fixed;
+    z-index: 19;
+    inset: calc(var(--header-height) + 0.5rem) 1rem auto auto;
+    width: min(22rem, calc(100% - 2rem));
+    max-height: calc(100vh - var(--header-height) - 1rem);
+    max-height: calc(100dvh - var(--header-height) - 1rem);
+    margin: 0;
+    overscroll-behavior: contain;
+    box-shadow: var(--shadow);
   }
 
   .js .nav-toggle {
@@ -54,7 +63,8 @@
 
   .card-grid,
   .feature-grid,
-  .feature-grid.three {
+  .feature-grid.three,
+  .guide-detail {
     grid-template-columns: 1fr;
   }
 
@@ -101,6 +111,7 @@
   .card,
   .feature-card,
   .diagram,
+  .guide-figure,
   .screenshot {
     break-inside: avoid;
     box-shadow: none;

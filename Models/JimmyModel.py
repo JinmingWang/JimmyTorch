@@ -149,6 +149,17 @@ class JimmyModel(nn.Module):
                 print(f"Missing parameter '{param_name}' in model '{self.__class__.__name__}'.")
 
 
+    def getProfileInputs(self, batch):
+        """Return (args, kwargs) for a forward on a one-example evaluation batch.
+
+        Override for multi-input models or custom batch dictionaries.
+        """
+        for key in ("input", "data"):
+            value = batch.get(key)
+            if isinstance(value, torch.Tensor) and value.ndim and value.shape[0] == 1:
+                return (value,), {}
+        raise ValueError("Provide getProfileInputs(batch) for this model's forward inputs.")
+
     def getCompCost(self, *args, exit_after_print: bool=True, **kwargs):
         from calflops import calculate_flops
         from .Functional import ReplaceMultiHeadAttention, ReplaceTransformerEncoderLayer

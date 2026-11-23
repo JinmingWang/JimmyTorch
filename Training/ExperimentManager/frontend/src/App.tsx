@@ -29,8 +29,9 @@ export function App() {
   return (
     <Switch>
       <Route path="/arch/:dataset/:model/:run" component={ArchViewer} />
-      <Route path="/" component={Dashboard} />
-      <Route component={Dashboard} />
+      <Route path="/compare"><Dashboard comparison /></Route>
+      <Route path="/"><Dashboard /></Route>
+      <Route><Dashboard /></Route>
     </Switch>
   );
 }

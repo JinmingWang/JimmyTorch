@@ -7,6 +7,7 @@ export interface RunNode {
   path: string;
   run_dir: string;
   has_db: boolean;
+  has_profile?: boolean;
   has_best: boolean;
   has_last: boolean;
   has_arch: boolean;
@@ -132,4 +133,20 @@ export async function saveGlobalSettings(patch: Record<string, unknown>): Promis
   await fetch("/api/global_settings", {
     method: "POST", headers: jsonHeaders, body: JSON.stringify(patch),
   });
+}
+
+export type Reduction = "last" | "lowest" | "highest";
+export interface ComparisonRun {
+  dataset: string;
+  model: string;
+  run_name: string;
+  measurements: Record<string, number>;
+  metrics: Record<string, Record<Reduction, number>>;
+  hparams: Record<string, number>;
+}
+
+export async function fetchComparison(signal: AbortSignal): Promise<ComparisonRun[]> {
+  const response = await fetch("/api/comparison", { signal });
+  if (!response.ok) throw new Error(`Comparison request failed (${response.status})`);
+  return response.json();
 }

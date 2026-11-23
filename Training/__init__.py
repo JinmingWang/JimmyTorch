@@ -6,8 +6,4 @@ except ModuleNotFoundError as error:
 	if error.name != "rich":
 		raise
 
-try:
-	from .TensorBoardManager import TensorBoardManager
-except ModuleNotFoundError as error:
-	if error.name != "tensorboard":
-		raise
+from .TensorBoardManager import TensorBoardManager

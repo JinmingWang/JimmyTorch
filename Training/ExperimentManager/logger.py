@@ -29,6 +29,8 @@ class ExperimentLogger:
         model_name: str,
         run_name: str,
     ) -> None:
+        self._started = time.monotonic()
+        self._last_training_step = None
         self.run_dir = run_dir
         self.dataset_name = dataset_name
         self.model_name = model_name
@@ -46,6 +48,7 @@ class ExperimentLogger:
             storage.set_meta(self._conn, "created_at", str(time.time()))
         storage.set_meta(self._conn, "updated_at", str(time.time()))
         storage.set_meta(self._conn, "status", STATUS_IDLE)
+        storage.set_meta(self._conn, "iterations_per_second", "")
 
     # ---------- scalars ----------
 
@@ -67,6 +70,8 @@ class ExperimentLogger:
         if not cleaned:
             return
         storage.record_scalars_batch(self._conn, int(step), cleaned)
+        if "LR" in cleaned:
+            self._last_training_step = int(step)
         self._touch()
 
     @staticmethod
@@ -93,6 +98,17 @@ class ExperimentLogger:
         self._touch()
 
     # ---------- metadata ----------
+
+    def log_parameter_count(self, model) -> None:
+        """Record a single count when parameters are already materialized."""
+        self.set_meta("model_profile", "{}")
+        try:
+            count = sum(parameter.numel() for parameter in model.parameters())
+        except (RuntimeError, ValueError, TypeError):
+            # Lazy modules may materialize their shapes only on the first batch.
+            self.set_meta("parameters", "")
+            return
+        self.set_meta("parameters", str(count))
 
     def log_hparams(self, hparams: dict) -> None:
         storage.set_meta(self._conn, "hparams", json.dumps(hparams, default=str))
@@ -121,6 +137,9 @@ class ExperimentLogger:
 
     def close(self, final_status: str = STATUS_DONE) -> None:
         try:
+            elapsed = time.monotonic() - self._started
+            if final_status == STATUS_DONE and self._last_training_step and elapsed > 0:
+                storage.set_meta(self._conn, "iterations_per_second", str(self._last_training_step / elapsed))
             storage.set_meta(self._conn, "status", final_status)
             storage.set_meta(self._conn, "closed_at", str(time.time()))
         finally:

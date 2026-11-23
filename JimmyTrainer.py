@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from Datasets import *
+from Datasets import DEVICE, JimmyDataset, MultiThreadLoader
 from Training import *
 from Training.ExperimentManager import (
     ExperimentLogger,

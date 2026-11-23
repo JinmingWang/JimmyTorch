@@ -23,10 +23,34 @@
     renderThemeButton();
   });
 
-  navButton?.addEventListener("click", () => {
-    const open = sidebar?.classList.toggle("is-open") ?? false;
-    navButton.setAttribute("aria-expanded", String(open));
-  });
+  if (navButton && sidebar) {
+    function setMenuOpen(open) {
+      sidebar.classList.toggle("is-open", open);
+      navButton.setAttribute("aria-expanded", String(open));
+    }
+
+    navButton.addEventListener("click", () => {
+      const open = !sidebar.classList.contains("is-open");
+      setMenuOpen(open);
+      if (open) {
+        sidebar.scrollTop = 0;
+        sidebar.querySelector("a")?.focus({ preventScroll: true });
+      }
+    });
+
+    function dismissOutside(event) {
+      if (!sidebar.contains(event.target) && !navButton.contains(event.target)) setMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("focusin", dismissOutside);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && sidebar.classList.contains("is-open")) {
+        setMenuOpen(false);
+        navButton.focus({ preventScroll: true });
+      }
+    });
+    window.matchMedia("(max-width: 900px)").addEventListener("change", () => setMenuOpen(false));
+  }
 
   document.querySelectorAll("pre").forEach((pre) => {
     const code = pre.querySelector("code");

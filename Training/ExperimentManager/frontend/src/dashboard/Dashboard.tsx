@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Link } from "wouter";
+import { Comparison } from "../comparison/Comparison";
 import { useLiveStore } from "../state/liveStore";
 import { keyOf, useUIStore } from "../state/uiStore";
 import { TrainingStatus } from "../section1_live/TrainingStatus";
@@ -15,12 +17,15 @@ const EMPTY_PROGRESS = {
   step: 0, steps_per_epoch: 0, elapsed: 0, rate: 0, remaining: null,
 };
 
-export function Dashboard() {
+export function Dashboard({ comparison = false }: { comparison?: boolean }) {
   const snapshot = useLiveStore((s) => s.snapshot);
   const wsState = useLiveStore((s) => s.wsState);
+  const selectedKey = useUIStore((s) => s.selectedKey);
   const tree = useUIStore((s) => s.tree);
   const loadTree = useUIStore((s) => s.loadTree);
   const select = useUIStore((s) => s.select);
+  const [highlighted, setHighlighted] = useState(selectedKey);
+  const [reveal, setReveal] = useState<{ key: string } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
@@ -39,26 +44,29 @@ export function Dashboard() {
   }, [select]);
 
   return (
-    <div className="app">
+    <div className={comparison ? "app comparison-page" : "app"}>
       <header className="app-header">
         <div className="brand">
           <img className="brand-mark" src="/jimmytorch-mark.svg" alt="" aria-hidden="true" />
           <div>
             <div className="brand-eyebrow">JimmyTorch</div>
-            <div className="brand-title">Experiment Manager</div>
+            <div className="brand-title">{comparison ? "Model comparison" : "Experiment Manager"}</div>
           </div>
         </div>
         <div className="app-header-right">
-          {snapshot?.run && (
+          {!comparison && snapshot?.run && (
             <div className="run-tag">
               {snapshot.run.dataset ?? "?"} / {snapshot.run.model ?? "?"} / {snapshot.run.run_name ?? "?"}
             </div>
           )}
-          <ThemeToggle />
+          <Link className="comparison-link" href={comparison ? "/" : "/compare"}>
+            {comparison ? "← Dashboard" : "Compare models →"}
+          </Link>
+          <ThemeToggle reload={!comparison} />
         </div>
       </header>
 
-      <section className="section section-live">
+      {!comparison && <section className="section section-live">
         <h2 className="section-heading">Current Training</h2>
         <TrainingStatus
           status={snapshot?.status ?? "idle"}
@@ -76,10 +84,10 @@ export function Dashboard() {
             learningRate={snapshot?.learning_rate ?? { applied: null, pending: null }}
           />
         </div>
-      </section>
+      </section>}
 
       <section className="section section-manage">
-        <h2 className="section-heading">Experiment Management</h2>
+        {!comparison && <h2 className="section-heading">Experiment Management</h2>}
         <div className={`manage-layout${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
           <aside className={`manage-sidebar${sidebarCollapsed ? " is-collapsed" : ""}`}>
             <button
@@ -95,17 +103,22 @@ export function Dashboard() {
             {!sidebarCollapsed && (
               <>
                 <div className="manage-tree">
-                  <TreeView tree={tree} />
+                  <TreeView tree={tree} reveal={comparison ? reveal : null} onSelectRun={comparison ? setHighlighted : undefined} />
                 </div>
                 <div className="manage-summary">
-                  <SummaryPanel />
+                  <SummaryPanel key={selectedKey} />
                 </div>
               </>
             )}
           </aside>
-          <div className="manage-curves">
-            <CurveGrid />
-          </div>
+          {comparison ? (
+            <Comparison highlighted={highlighted === selectedKey ? highlighted : null} onClear={() => setHighlighted(null)} onPick={(key) => {
+              setHighlighted(key);
+              select(key);
+              setSidebarCollapsed(false);
+              setReveal({ key });
+            }} />
+          ) : <div className="manage-curves"><CurveGrid /></div>}
         </div>
       </section>
     </div>

@@ -1,8 +1,9 @@
 from JimmyTrainer import JimmyTrainer
-from Datasets import *
+from Datasets import DEVICE, MNISTSampleDataset
 from Models import *
 from Training import *
 from Training.ExperimentManager import ExperimentLogger, DEFAULT_SERVER_PORT
+from Training.ExperimentManager.model_profile import record_model_profile
 import torch
 from typing import *
 from DynamicConfig import DynamicConfig
@@ -20,6 +21,7 @@ class JimmyExperiment:
     """
 
     def __init__(self, comments: str, dir_name: str = None):
+        self.profile_after_training = True
         self.comments = comments
         self.dir_name = dir_name if dir_name is not None else datetime.now().strftime("%y%m%d_%H%M%S")
 
@@ -135,6 +137,7 @@ class JimmyExperiment:
         )
         exp_logger.set_comments(self.comments)
         exp_logger.set_model_arch(str(model))
+        exp_logger.log_parameter_count(model)
         exp_logger.log_hparams({
             "dataset": str(self.dataset_cfg),
             "model": str(self.model_cfg),
@@ -150,6 +153,8 @@ class JimmyExperiment:
 
         trainer = self.trainer_type(**trainer_kwargs)
         trainer.start()
+        if self.profile_after_training:
+            record_model_profile(self.model_cfg, model, eval_set, self.constants["log_dir"], self.constants["save_dir"])
 
         return trainer
 

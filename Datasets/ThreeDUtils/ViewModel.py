@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 import argparse
 
 import numpy as np
 import torch
-import plotly.graph_objects as go
+
+if TYPE_CHECKING:
+	from plotly import graph_objects as go
 
 from .FileLoading import loadSTL, loadOFF, loadOBJ, loadPLY
 from .ModelSlicing import meshSlicing
@@ -26,8 +30,22 @@ def loadModel(path: str) -> torch.Tensor:
 	return loader(path)
 
 
+def _plotly():
+	try:
+		from plotly import graph_objects as go
+	except ModuleNotFoundError as error:
+		if error.name != "plotly":
+			raise
+		raise ModuleNotFoundError(
+			"To build interactive 3D figures, install Plotly with 'python -m pip install plotly'.",
+			name="plotly",
+		) from error
+	return go
+
+
 def build_mesh_trace(vertices: torch.Tensor) -> go.Mesh3d:
 	"""Build a Plotly Mesh3d trace from a (F, 3, 3) triangle-vertex tensor."""
+	go = _plotly()
 	triangles = vertices.detach().cpu().numpy()
 
 	# Flatten triangle vertices into point arrays expected by Plotly Mesh3d.
@@ -68,6 +86,7 @@ def build_mesh_trace(vertices: torch.Tensor) -> go.Mesh3d:
 
 def build_edge_trace(vertices: torch.Tensor) -> go.Scatter3d:
 	"""Build a Plotly line trace outlining every triangle edge."""
+	go = _plotly()
 	triangles = vertices.detach().cpu().numpy()
 
 	# Draw triangle edges by inserting None separators between segments.
@@ -117,6 +136,7 @@ def flatten_intersection_points(points_list: List[torch.Tensor]) -> Tuple[np.nda
 
 def build_points_trace(points: np.ndarray, plane_ids: np.ndarray) -> go.Scatter3d:
 	"""Build a Plotly marker trace for intersection points, colored by plane id."""
+	go = _plotly()
 	return go.Scatter3d(
 		x=points[:, 0],
 		y=points[:, 1],
@@ -139,6 +159,7 @@ def build_figure(
 	title: str = "Interactive 3D Model Viewer (Plotly)",
 ) -> go.Figure:
 	"""Build a figure showing only the model mesh and (optionally) intersection points - no plane geometry."""
+	go = _plotly()
 	figure = go.Figure()
 
 	figure.add_trace(build_mesh_trace(vertices))

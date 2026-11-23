@@ -141,7 +141,7 @@ basis = buildPlaneBasis(torch.tensor(plane_axis, device=normalized.device))</cod
         </ul>
       </section>
 
-      <section class="section" aria-labelledby="optional"><h2 id="optional">Optional dependencies</h2><p>STL loading requires <code>numpy-stl</code>; 3D interactive figures require <code>plotly</code>; FLOP calculation requires <code>calflops</code>; TensorBoard logging requires TensorBoard. Imports from umbrella packages may expose optional modules, so install the dependencies used by your chosen workflow.</p></section>
+      <section class="section" aria-labelledby="optional"><h2 id="optional">Optional dependencies</h2><p><code>loadSTL</code> imports <code>numpy-stl</code> when reading an STL file. The OBJ, OFF, and ASCII PLY readers, mesh slicing, and projection work independently of that package. Install <code>plotly</code> to build interactive 3D figures and <code>calflops</code> to calculate FLOPs. See the <a href="getting-started.html#requirements">installation guide</a> for the training dependencies and other integrations.</p></section>
     </main>
   </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="api.html">Next: API reference →</a></span></footer>
 </body></html>

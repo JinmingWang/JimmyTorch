@@ -70,6 +70,7 @@ def scan_run(dataset_dir: str, model_dir: str, run_name: str, runs_root: Path) -
         "path": f"{dataset_dir}/{model_dir}/{run_name}",
         "run_dir": str(run_dir),
         "has_db": has_db,
+        "has_profile": meta.get("model_profile") not in (None, "", "{}"),
         "has_best": (run_dir / "best.pth").is_file(),
         "has_last": (run_dir / "last.pth").is_file(),
         "has_arch": (run_dir / "model_arch.txt").is_file() or bool(meta.get("model_arch")),

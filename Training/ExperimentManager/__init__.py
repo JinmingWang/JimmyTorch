@@ -19,7 +19,18 @@ from .constants import (
     STATUS_TRAINING,
 )
 from .logger import ExperimentLogger
-from .server import build_app, run_server
+
+
+def __getattr__(name):
+    if name in {"build_app", "run_server"}:
+        from . import server
+        return getattr(server, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))
+
 
 __all__ = [
     "ExperimentLogger",

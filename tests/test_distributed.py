@@ -91,6 +91,9 @@ def test_distributedLifecycle(tmp_path):
     with sqlite3.connect(tmp_path / "rank-0/status_and_log.sqlite") as connection:
         assert connection.execute("select value from meta where key='status'").fetchone()[0] == "done"
         assert connection.execute("select count(*) from figures").fetchone()[0] == 2
+        profile = json.loads(connection.execute("select value from meta where key='model_profile'").fetchone()[0])
+        assert profile["batch_size"] == 1 and profile["input_shapes"] == [[1, 1]]
+        assert profile["parameters"] == 2 and profile["forward_macs"] == 1
     assert (tmp_path / "rank-0/best.pth").exists()
     assert json.loads((tmp_path / "scheduler-0.json").read_text()) == json.loads((tmp_path / "scheduler-1.json").read_text())
     # The DDP checkpoint is directly loadable into the original module.

@@ -1,4 +1,3 @@
-from torch.utils.tensorboard import SummaryWriter
 from typing import Literal
 import os
 
@@ -8,6 +7,8 @@ class TensorBoardManager:
         Initialize the TensorBoard manager.
         :param log_dir: Directory to save TensorBoard logs.
         """
+        from torch.utils.tensorboard import SummaryWriter
+
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
         self.writer = SummaryWriter(log_dir=log_dir)

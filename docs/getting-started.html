@@ -15,15 +15,19 @@
       <header class="page-head"><p class="eyebrow">Start here</p><h1>Getting started</h1><p class="lede">Run the included MNIST example, understand what it creates, and then replace its dataset and model with your own.</p></header>
 
       <section aria-labelledby="requirements"><h2 id="requirements">Requirements</h2>
-        <p>JimmyTorch is currently used directly from its source checkout; this repository does not define a packaged release or pinned dependency manifest. Use a Python environment with PyTorch and install the modules required by the feature set you use.</p>
-        <div class="table-wrap"><table><thead><tr><th>Area</th><th>Runtime modules</th></tr></thead><tbody>
-          <tr><td>Repository imports</td><td><code>torch</code>, <code>torchvision</code>, <code>pandas</code>, <code>matplotlib</code>, <code>rich</code>, <code>jaxtyping</code>, <code>tqdm</code>, <code>numpy</code>, <code>numpy-stl</code>, <code>plotly</code>, <code>calflops</code>, <code>aiohttp</code></td></tr>
-          <tr><td>Optional integrations</td><td><code>tensorboard</code> when enabled; <code>psutil</code> and <code>pynvml</code> for monitor system metrics</td></tr>
+        <p>Run JimmyTorch from a source checkout. The repository currently has no pinned dependency manifest.</p>
+        <p>For the MNIST example, install a matching <code>torch</code> and <code>torchvision</code> pair for your platform. Then install the remaining training dependencies.</p>
+        <pre><code>python -m pip install pandas matplotlib rich jaxtyping numpy</code></pre>
+        <h3>Optional dependencies</h3>
+        <div class="table-wrap"><table><thead><tr><th>Feature</th><th>Install when needed</th></tr></thead><tbody>
+          <tr><td>Read STL meshes</td><td><code>numpy-stl</code>. OBJ, OFF and ASCII PLY loading, slicing, and projection work with the training dependencies above.</td></tr>
+          <tr><td>Build interactive 3D figures</td><td><code>plotly</code></td></tr>
+          <tr><td>Count forward MACs and FLOPs</td><td><code>calflops</code>. Training can finish and save checkpoints when the profiler is unavailable.</td></tr>
+          <tr><td>Serve the Experiment Manager dashboard</td><td><code>aiohttp</code> on the machine running the dashboard</td></tr>
+          <tr><td>Collect system telemetry</td><td><code>psutil</code> for CPU memory and <code>nvidia-ml-py</code> for NVIDIA GPU readings on the training machine</td></tr>
+          <tr><td>Write TensorBoard logs</td><td><code>tensorboard</code> when logging is enabled</td></tr>
+          <tr><td>Use the diffusion samplers</td><td><code>tqdm</code></td></tr>
         </tbody></table></div>
-        <div class="callout warning"><strong>Install PyTorch for your platform first.</strong>CUDA wheels and accelerator support vary by operating system and hardware; follow the official PyTorch installation selector rather than copying an environment-specific command.</div>
-        <p>The current umbrella imports expose 3D and cost-analysis modules eagerly, so <code>numpy-stl</code>, <code>plotly</code>, and <code>calflops</code> are required even if the first experiment does not call those helpers.</p>
-        <pre><code>python -m pip install torchvision pandas matplotlib rich jaxtyping tqdm \
-  numpy numpy-stl plotly calflops aiohttp</code></pre>
       </section>
 
       <section class="section" aria-labelledby="checkout"><h2 id="checkout">1. Get the source</h2>

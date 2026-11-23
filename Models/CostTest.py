@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from calflops import calculate_flops
 
 
 def testCudaSpeed(model: nn.Module, input_shapes: list[list[int]], output_shapes:list[list[int]]) -> tuple[float, float]:
@@ -78,6 +77,8 @@ def testFlops(model: nn.Module, input_shapes: list[list[int]], print_detailed: b
         model (nn.Module): The PyTorch model to be tested.
         input_shapes (list[list[int]]): A list of shapes for the input tensors.
     """
+
+    from calflops import calculate_flops
 
     print(f"Running FLOPs test with {model.__class__.__name__}...")
 

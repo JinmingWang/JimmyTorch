@@ -47,6 +47,8 @@ Datasets and models are reusable dimensions rather than one-to-one pairs. Combin
 
 One standalone dashboard can follow current training and inspect historical runs. It includes resource metrics, runtime learning-rate control, a searchable run tree, multi-run scalar curves, stored figures, summaries, notes, and architecture views.
 
+Use **Compare models** to plot one point per run against measurements, custom metric summaries, or numeric hyperparameters. [Comparison guide](docs/experiment-manager.html#comparison)
+
 ## Quick start
 
 ```bash

@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { RunNode, TreeResponse } from "../../api/rest";
 import { setColor, setStarred } from "../../api/rest";
 import {
   effectiveColor,
   iterRuns,
+  parseKey,
   keyOf,
   useUIStore,
 } from "../../state/uiStore";
@@ -13,6 +14,8 @@ import { ColorCircle } from "./ColorCircle";
 
 interface Props {
   tree: TreeResponse | null;
+  reveal?: { key: string } | null;
+  onSelectRun?: (key: string) => void;
 }
 
 type CheckState = "unchecked" | "partial" | "checked";
@@ -42,7 +45,7 @@ function computeGroupState(memberKeys: string[], checked: Set<string>): CheckSta
   return "partial";
 }
 
-export function TreeView({ tree }: Props) {
+export function TreeView({ tree, reveal, onSelectRun }: Props) {
   const selectedKey = useUIStore((s) => s.selectedKey);
   const checkedKeys = useUIStore((s) => s.checkedKeys);
   const select = useUIStore((s) => s.select);
@@ -53,6 +56,32 @@ export function TreeView({ tree }: Props) {
   const [query, setQuery] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [runTooltip, setRunTooltip] = useState<RunTooltip | null>(null);
+
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!reveal) return;
+    const { dataset, model, run_name } = parseKey(reveal.key);
+    setCollapsedGroups((groups) => {
+      const next = new Set(groups);
+      next.delete(`dataset:${dataset}`);
+      next.delete(`model:${dataset}\u0000${model}`);
+      return next;
+    });
+    setQuery((current) => [dataset, model, run_name].some(
+      (name) => name.toLowerCase().includes(current.trim().toLowerCase()),
+    ) ? current : "");
+    const frame = requestAnimationFrame(() => {
+      const panel = root.current?.closest(".manage-tree");
+      const row = root.current?.querySelector(".tree-run.selected");
+      if (panel && row) {
+        const box = panel.getBoundingClientRect();
+        const item = row.getBoundingClientRect();
+        if (item.top < box.top) panel.scrollTop += item.top - box.top;
+        if (item.bottom > box.bottom) panel.scrollTop += item.bottom - box.bottom;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [reveal]);
 
   const allRuns = useMemo(() => iterRuns(tree), [tree]);
 
@@ -76,7 +105,7 @@ export function TreeView({ tree }: Props) {
   };
 
   return (
-    <div className="tree-view">
+    <div className="tree-view" ref={root}>
       <div className="tree-filter">
         <input
           type="text"
@@ -147,7 +176,7 @@ export function TreeView({ tree }: Props) {
                               <div
                                 className="tree-row tree-row-leaf"
                                 style={{ paddingLeft: `${2 * 20}px` }}
-                                onClick={() => select(key)}
+                                onClick={() => { select(key); onSelectRun?.(key); }}
                                 onMouseEnter={(event) => setRunTooltip({
                                   createdAt: node.created_at,
                                   x: event.clientX,

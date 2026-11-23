@@ -1,6 +1,5 @@
 import torch
 import warnings
-from stl import mesh
 import numpy as np
 from typing import List
 
@@ -12,6 +11,16 @@ else:
 
 def loadSTL(path: str) -> torch.Tensor:
     """Load STL file and return vertices as a torch.float32 tensor on DEVICE."""
+    try:
+        from stl import mesh
+    except ModuleNotFoundError as error:
+        if error.name != "stl":
+            raise
+        raise ModuleNotFoundError(
+            "To read STL meshes, install numpy-stl with 'python -m pip install numpy-stl'.",
+            name="stl",
+        ) from error
+
     stl_mesh = mesh.Mesh.from_file(path)
     vertices = stl_mesh.vectors  # Shape: (F, 3, 3), dtype already <f4 (float32)
     return torch.from_numpy(vertices.astype(np.float32)).to(DEVICE)

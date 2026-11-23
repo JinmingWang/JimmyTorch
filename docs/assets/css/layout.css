@@ -12,7 +12,7 @@
   align-items: center;
   justify-content: space-between;
   max-width: var(--content);
-  min-height: 4.25rem;
+  min-height: var(--header-height);
   margin: 0 auto;
   padding: 0 1.25rem;
 }
