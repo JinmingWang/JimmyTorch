@@ -81,6 +81,7 @@ for batch in loader:
       </section>
 
       <section class="section" aria-labelledby="specialized"><h2 id="specialized">Specialized data helpers</h2><p>JimmyTorch exports trajectory transforms, sequence padding, 3D mesh loading and slicing, projection utilities, and signed-distance rasterization. See <a href="utilities.html">Specialized utilities</a> for current names and constraints.</p></section>
+      <section class="section"><h2>Opt-in distributed datasets</h2><p>Use <code>DistributedJimmyDataset</code> for DDP. The trainer calls <code>configureDistributed(rank, world_size, seed)</code> and <code>setEpoch(epoch)</code>. Global <code>n_samples</code> and batch-index <code>__getitem__</code> remain; <code>local_n_samples</code> and <code>n_batches</code> describe each worker. Custom iterators must use the rank-local <code>_indices</code> and emit exactly that batch count. Padding repeats samples when <code>drop_last=False</code>; otherwise tails are dropped. The separate loader propagates errors and supports shutdown. Legacy dataset behavior is unchanged.</p><p><a href="distributed.html">Distributed training guide →</a></p></section>
     </main>
   </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="models.html">Next: Models →</a></span></footer>
 </body></html>

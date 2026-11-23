@@ -41,3 +41,7 @@ Inspect implementations before depending on tensor layout. In particular, genera
 - Confirm outputs used for logging are detached.
 - Exercise mixed precision only on supported devices; keep a CPU-safe path.
 - Round-trip a state dictionary and explicitly test any intended partial-load behavior.
+
+## Opt-in distributed models
+
+Use `DistributedJimmyModel` for distributed projects only; leave legacy `JimmyModel` projects unchanged. Preserve `trainStep` / `backwardOptimize`, using `self(...)` and one `self.backwardOptimize(loss)` per batch. All workers must execute matching control flow. The DDP bridge returns before backward, and saved weights have ordinary parameter names. No `computeTrainLoss` migration is needed. See `docs/distributed.html` for the supported contract and tests.

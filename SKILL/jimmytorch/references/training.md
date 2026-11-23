@@ -46,3 +46,11 @@ Set `experiment.trainer_type` to a compatible class for another paradigm. Preser
 ## Validation
 
 Use a tiny synthetic dataset and model to test component construction, one optimizer step, evaluation aggregation, scheduler update, checkpoint selection, resume, error closure, and operation with no monitor service. Avoid running the downloadable MNIST example unless network access and runtime cost are in scope.
+
+## Separate distributed lifecycle
+
+Use `DistributedJimmyExperiment`, `DistributedJimmyTrainer`, `DistributedJimmyDataset`, and `DistributedJimmyModel` from `Distributed`. Never retrofit the original pipeline for DDP. Launch `distributed_main.py` with torchrun, on one or multiple machines with equal worker counts. Batch size is per GPU; LR scaling is explicit.
+
+The context selects the device before construction. Preparation scope is `none`, `shared`, or `per_node`; all ranks must see the same logical dataset/order. Global rank 0 owns validation, SQLite, figures, checkpoints and overall dashboard status. Every machine's local rank 0 reports telemetry without collectives. Weight-only checkpoints do not resume optimizer/scheduler state. Fixed membership only; no gradient accumulation, multiple optimizers, or model sharding.
+
+Run `tests/test_distributed.py`, `tests/test_legacy_compatibility.py`, and `tests/test_gpu_monitoring.py`, plus frontend checks. Distinguish CPU/two-launcher simulation results from pending real multi-machine and CUDA verification. Full interfaces and launch recipes: `docs/distributed.html`.

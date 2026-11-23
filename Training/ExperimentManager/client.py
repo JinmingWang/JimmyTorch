@@ -34,41 +34,77 @@ except ImportError:  # pragma: no cover
     psutil = None  # type: ignore
 
 _pynvml: Any = None
-_pynvml_handles: list = []
 try:
-    import pynvml as _pynvml_mod  # type: ignore
+    import pynvml as _pynvml_mod
     _pynvml_mod.nvmlInit()
     _pynvml = _pynvml_mod
-    _pynvml_handles = [
-        _pynvml.nvmlDeviceGetHandleByIndex(i)
-        for i in range(_pynvml.nvmlDeviceGetCount())
-    ]
 except Exception:
-    _pynvml = None
-    _pynvml_handles = []
+    pass
 
 
-def _sample_system() -> dict:
-    """Return best-effort system stats. Missing fields are omitted."""
-    out: dict[str, Any] = {}
+def _deviceText(value):
+    return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else str(value)
+
+
+def _normalizeId(value):
+    return _deviceText(value).lower().removeprefix("gpu-") if value else None
+
+
+def _sampleSystem(device_assignments=None) -> dict:
+    """Best-effort device-wide telemetry; never participates in DDP collectives."""
+    out: dict[str, Any] = {"gpus": None}
     if psutil is not None:
         try:
-            vm = psutil.virtual_memory()
-            out["cpu_mem_bytes"] = int(vm.used)
-            out["cpu_mem_total"] = int(vm.total)
+            memory = psutil.virtual_memory()
+            out["cpu_mem_bytes"] = int(memory.used)
+            out["cpu_mem_total"] = int(memory.total)
             out["cpu_util"] = float(psutil.cpu_percent(interval=None))
         except Exception:
             pass
-    if _pynvml is not None and _pynvml_handles:
+    if _pynvml is None:
+        return out
+    try:
+        device_count = _pynvml.nvmlDeviceGetCount()
+    except Exception:
+        return out
+    gpus = []
+    for device_index in range(device_count):
+        gpu = {"id": f"nvml-{device_index}", "index": device_index, "name": None,
+               "utilization": None, "memory_used": None, "memory_total": None,
+               "training_ranks": None}
         try:
-            h = _pynvml_handles[0]
-            mem = _pynvml.nvmlDeviceGetMemoryInfo(h)
-            util = _pynvml.nvmlDeviceGetUtilizationRates(h)
-            out["gpu_mem_used"] = int(mem.used)
-            out["gpu_mem_total"] = int(mem.total)
-            out["gpu_util"] = int(util.gpu)
+            handle = _pynvml.nvmlDeviceGetHandleByIndex(device_index)
+        except Exception:
+            gpus.append(gpu)
+            continue
+        for field, query in (("id", _pynvml.nvmlDeviceGetUUID), ("name", _pynvml.nvmlDeviceGetName)):
+            try:
+                gpu[field] = _deviceText(query(handle))
+            except Exception:
+                pass
+        try:
+            memory = _pynvml.nvmlDeviceGetMemoryInfo(handle)
+            gpu["memory_used"], gpu["memory_total"] = int(memory.used), int(memory.total)
         except Exception:
             pass
+        try:
+            gpu["utilization"] = int(_pynvml.nvmlDeviceGetUtilizationRates(handle).gpu)
+        except Exception:
+            pass
+        gpus.append(gpu)
+    known_ids = {_normalizeId(gpu["id"]) for gpu in gpus if not gpu["id"].startswith("nvml-")}
+    cuda_assignments = [entry for entry in (device_assignments or []) if entry["device_type"] == "cuda"]
+    resolved = device_assignments is not None and all(
+        _normalizeId(entry["device_id"]) in known_ids for entry in cuda_assignments)
+    for gpu in gpus:
+        if resolved and not gpu["id"].startswith("nvml-"):
+            gpu["training_ranks"] = [entry["rank"] for entry in cuda_assignments
+                                     if _normalizeId(entry["device_id"]) == _normalizeId(gpu["id"])]
+    out["gpus"] = gpus
+    if gpus:
+        for old_name, new_name in (("gpu_util", "utilization"), ("gpu_mem_used", "memory_used"), ("gpu_mem_total", "memory_total")):
+            if gpus[0][new_name] is not None:
+                out[old_name] = gpus[0][new_name]
     return out
 
 
@@ -89,6 +125,7 @@ class ExperimentManagerClient:
         model_name: str = "",
         run_name: str = "",
         run_dir: str = "",
+        device_assignments: Optional[list] = None,
     ) -> None:
         if items_per_epoch <= 0:
             raise ValueError("items_per_epoch must be positive.")
@@ -97,6 +134,7 @@ class ExperimentManagerClient:
         if refresh_interval <= 0:
             raise ValueError("refresh_interval must be positive.")
 
+        self.device_assignments = device_assignments
         self.epochs = epochs
         self.steps_per_epoch = items_per_epoch
         self.total_steps = epochs * items_per_epoch
@@ -172,7 +210,12 @@ class ExperimentManagerClient:
             self._pending_lr = None
             return lr
 
+    def sampleSystem(self):
+        return _sampleSystem(self.device_assignments)
+
     def snapshot(self) -> dict:
+        # Slow/failed device queries must not hold the lock used by trainer updates.
+        system_stats = self.sampleSystem()
         with self._lock:
             elapsed = max(0.0, time.time() - self.start_time)
             rate = self.overall_progress / elapsed if elapsed > 0 else 0.0
@@ -204,7 +247,7 @@ class ExperimentManagerClient:
                     "applied": self._applied_lr,
                     "pending": self._pending_lr,
                 },
-                "system": _sample_system(),
+                "system": system_stats,
             }
 
     def close(self) -> None:

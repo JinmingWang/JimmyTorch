@@ -1,0 +1,28 @@
+import torch
+
+
+class MovingAvg():
+    def __init__(self, window_size: int):
+        if window_size < 1:
+            raise ValueError("window_size must be positive")
+        self.window_size = window_size
+        self.values = torch.zeros(window_size, dtype=torch.float32)
+        self.idx = 0
+        self.count = 0
+
+    def update(self, value: float):
+        self.values[self.idx] = value
+        self.idx = (self.idx + 1) % self.window_size
+        self.count = min(self.count + 1, self.window_size)
+
+    def get(self) -> float:
+        return self.values[:self.count].mean().item()
+
+    def __len__(self):
+        return self.count
+
+    def toList(self) -> list[float]:
+        if self.count == self.window_size:
+            return (torch.cat((self.values[self.idx:], self.values[:self.idx]))).tolist()
+        else:
+            return (self.values[:self.count]).tolist()

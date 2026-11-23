@@ -70,6 +70,7 @@ export function Dashboard() {
           <MetricCards
             progress={snapshot?.progress ?? EMPTY_PROGRESS}
             system={snapshot?.system ?? {}}
+            nodes={snapshot?.nodes}
           />
           <LearningRateControl
             learningRate={snapshot?.learning_rate ?? { applied: null, pending: null }}

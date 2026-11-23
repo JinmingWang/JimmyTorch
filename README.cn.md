@@ -86,6 +86,27 @@ docs/                          面向开发者的英文文档
 - [专项工具](docs/utilities.html)
 - [API 参考](docs/api.html)
 
+## 分布式训练（独立入口）
+
+原有 `JimmyModel`、`JimmyDataset`、`JimmyTrainer`、`JimmyExperiment` 及 `python main.py` 保持原来的接口和行为。新项目可显式使用 `Distributed` 包中的 `DistributedJimmy*` 类；不需要将旧项目改成新的损失函数接口。
+
+```bash
+# 单机四卡：batch_size 表示每张 GPU 的批量大小。
+torchrun --standalone --nproc-per-node=4 distributed_main.py
+
+# 两台机器，每台四卡。两台都执行，将 NODE_RANK 分别改为 0 和 1。
+# PRIMARY_HOST 是主节点可访问的主机名或 IP。
+JIMMY_DASHBOARD_HOST=PRIMARY_HOST torchrun --nnodes=2 --nproc-per-node=4 \
+  --node-rank=NODE_RANK --master-addr=PRIMARY_HOST --master-port=29500 \
+  --max-restarts=0 distributed_main.py
+```
+
+在主节点启动网页服务：`python -m Training.ExperimentManager --host 0.0.0.0 --port 9000`。各节点使用相同代码和逻辑一致的数据；`data_prepare_scope` 可选 `none`（已准备好）、`shared`（全局准备一次）或 `per_node`（每台机器准备一次）。
+
+新模型仍使用 `trainStep(batch)`，其中通过 `self(...)` 前向计算，并且每批调用一次 `self.backwardOptimize(loss)`。可以自定义优化方法，但各 rank 的前向/反向流程必须一致。首版不支持多优化器、梯度累积或弹性恢复。验证、日志和权重保存由全局 rank 0 执行；学习率不会自动缩放，BatchNorm 统计保持每卡独立。检查点只保存模型权重。
+
+Experiment Manager 同时适配旧流程和新流程，按机器显示所有可检测 GPU，包括空闲设备和训练 rank 分配。读数是设备整体使用量；缺失读数显示“—”，过期的节点报告会单独标记。安装 `nvidia-ml-py` 可启用 NVIDIA 监控。详见[分布式训练指南](docs/distributed.html)。
+
 ## 项目状态
 
 JimmyTorch 是一个随着实际研究持续演进的个人科研框架。在其他项目中使用时，请结合当前源码和文档进行确认。

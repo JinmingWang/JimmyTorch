@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Configure training, evaluation, checkpoints, and experiment records with JimmyExperiment and JimmyTrainer."><title>Distributed training · JimmyTorch</title><link rel="icon" href="assets/images/jimmytorch-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/css/site.css"><script src="assets/js/site.js" defer></script></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html"><img src="assets/images/jimmytorch-mark.svg" alt=""><span>JimmyTorch Docs</span></a><div class="header-actions"><a class="button" href="https://github.com/JinmingWang/JimmyTorch">GitHub</a><button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="docs-navigation">Menu</button><button class="icon-button" type="button" data-theme-toggle aria-label="Use light theme">☀</button></div></div></header>
+  <div class="docs-shell"><aside class="sidebar" id="docs-navigation"><nav aria-label="Documentation"><p class="sidebar-label">Start here</p><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><p class="sidebar-label">Core workflow</p><a href="datasets.html">Datasets</a><a href="models.html">Models</a><a href="training.html">Training &amp; evaluation</a><a href="experiment-manager.html">Experiment Manager</a><p class="sidebar-label">Reference</p><a href="utilities.html">Specialized utilities</a><a href="api.html">API reference</a></nav></aside>
+
+    <main class="docs-main" id="content">
+      <header class="page-head"><p class="eyebrow">Opt-in pipeline</p><h1>Distributed training</h1><p class="lede">A separate lifecycle for fixed-membership DDP across one or multiple machines. Existing single-GPU projects keep their classes, configurations, and behavior.</p></header>
+      <section><h2>Choose the pipeline</h2><pre><code>Existing projects                    Distributed projects
+JimmyExperiment                      DistributedJimmyExperiment
+JimmyTrainer                         DistributedJimmyTrainer
+JimmyModel                           DistributedJimmyModel
+JimmyDataset                         DistributedJimmyDataset
+python main.py                       torchrun ... distributed_main.py</code></pre>
+        <p>New classes are exported by <code>Distributed</code>. The original classes do not import or initialize the new pipeline. Changing the base classes is an explicit opt-in; check custom training and dataset iteration against the contracts below.</p></section>
+      <section class="section"><h2>Launch</h2><pre><code># One machine, four visible GPUs
+torchrun --standalone --nproc-per-node=4 distributed_main.py
+# A reordered subset: physical identities in the dashboard remain correct
+CUDA_VISIBLE_DEVICES=3,1 torchrun --standalone --nproc-per-node=2 distributed_main.py
+# CPU smoke run or one-worker debugging
+CUDA_VISIBLE_DEVICES="" torchrun --standalone --nproc-per-node=1 distributed_main.py
+
+# Two machines, four GPUs each: execute on BOTH machines.
+# Replace NODE_RANK with 0 on the primary machine and 1 on the other.
+JIMMY_DASHBOARD_HOST=PRIMARY_HOST torchrun --nnodes=2 --nproc-per-node=4 \
+  --node-rank=NODE_RANK --master-addr=PRIMARY_HOST --master-port=29500 \
+  --max-restarts=0 distributed_main.py</code></pre>
+        <p>PRIMARY_HOST must be reachable by both machines. Use matching PyTorch/CUDA environments, identical code, the same worker count per machine, and the same logical dataset/order. NCCL is used for CUDA and Gloo for CPU. This is ordinary replicated-model DDP, not model sharding. The example downloads MNIST once per machine; synthetic tests never download data.</p>
+        <p>Launch the dashboard on the primary machine: <code>python -m Training.ExperimentManager --host 0.0.0.0 --port 9000</code>. The example reads <code>JIMMY_DASHBOARD_HOST</code>; custom experiments set <code>constants["progress_host"]</code>. Use the server's actual port if it selects a different available port. Bind on a trusted network as described in the <a href="experiment-manager.html">dashboard guide</a>.</p></section>
+      <section class="section"><h2>Configuration</h2><pre><code>from Distributed import DistributedJimmyExperiment
+
+experiment = DistributedJimmyExperiment("My distributed run")
+experiment.model_cfg.cls = MyDistributedModel
+experiment.dataset_cfg.cls = MyDistributedDataset
+experiment.dataset_cfg.batch_size = 32  # Per GPU
+experiment.constants.update(n_epochs=20, progress_host="primary-host")
+experiment.distributed_cfg.update(
+    backend=None,                  # Automatic NCCL/CUDA or Gloo/CPU
+    timeout_seconds=1800,          # Includes time waiting for rank-0 validation
+    seed=0,
+    data_prepare_scope="none",     # none, shared, per_node
+)
+trainer = experiment.start(checkpoint=None)</code></pre>
+        <p><code>model_cfg</code>, <code>dataset_cfg</code>, <code>lr_scheduler_cfg</code>, and training constants retain familiar roles. All ranks must use matching configurations. <code>batch_size × world_size</code> is the global batch size (the final batch may be smaller). Learning rates are never automatically scaled. BatchNorm statistics stay local to each GPU.</p>
+        <p>The experiment requires a torchrun environment, even with one worker. For a manual lifecycle, construct <code>Distributed.Context.DistributedContext</code> before datasets/models, move the model to <code>context.device</code>, call <code>initialize()</code>, and pass <code>distributed_context=context</code> to the new trainer. Close the context in a finally block. The trainer detaches its DDP wrapper on exit; an explicitly supplied context remains the caller's responsibility.</p></section>
+      <section class="section"><h2>Keep the training methods</h2><pre><code>from Distributed import DistributedJimmyModel
+from Models.Functional import getAutoCast
+
+class MyDistributedModel(DistributedJimmyModel):
+    # Define architecture in __init__, then implement forward as usual.
+    def trainStep(self, batch):
+        with getAutoCast(batch["data"], self.mixed_precision):
+            prediction = self(batch["data"])
+            loss = self.loss_fn(prediction, batch["target"])
+        self.backwardOptimize(loss)
+        return {"Train/Main": loss.item()}, {"output": prediction.detach()}</code></pre>
+        <p>No <code>computeTrainLoss</code> hook is required. Training forwards must call <code>self(...)</code>, not <code>self.forward(...)</code> or a detached inner network that bypasses DDP. Call <code>self.backwardOptimize(loss)</code> once per batch with a differentiable scalar loss. Return declared scalar mean metrics and detached outputs. Every rank must follow the same forward/backward sequence, with every trainable parameter participating in the loss.</p>
+        <p>The bridge runs DDP forward before returning to the training method. The backward dispatch guard checks loss finiteness collectively before calling your optimizer method. The default method handles AMP, synchronized backward, unscaling before clipping, optimizer update and gradient clearing. Custom <code>backwardOptimize</code> overrides remain supported and own those optimization details; overriding it does not automatically add AMP or clipping to your code. Bypassing the guarded method, independently skipping backward, accumulation, and multiple optimizer updates are outside this version's contract.</p>
+        <p><code>compile_model=True</code> compiles the underlying forward. <code>evalStep</code>, <code>testStep</code>, and figure output are retained. The separate <code>DistributedSampleCNN</code> reuses the original architecture and evaluation hooks, supplying a corrected training method; the original SampleCNN remains untouched.</p></section>
+      <section class="section"><h2>Data and preparation</h2><pre><code>from Distributed import DistributedJimmyDataset
+
+class MyDistributedDataset(DistributedJimmyDataset):
+    @classmethod
+    def prepareData(cls, root, **dataset_args):
+        # Optional download or preprocessing, before any split is constructed.
+        ...
+
+    def __getitem__(self, batch_idx):
+        indices = self._indices[batch_idx * self.batch_size:
+                                (batch_idx + 1) * self.batch_size]
+        return {"data": self.features[indices], "target": self.targets[indices]}</code></pre>
+        <p>Call the base constructor and set global <code>n_samples</code> in your constructor. The trainer configures global-rank partitioning and changes the deterministic shuffle each epoch. <code>len(dataset)</code> remains global; <code>local_n_samples</code> and <code>n_batches</code> are local. Standard inherited iteration/indexing works unchanged. A custom iterator must use the assigned <code>_indices</code>, honor <code>setEpoch</code>, and produce exactly <code>n_batches</code> dictionary batches.</p>
+        <p>With <code>drop_last=False</code>, pad the shuffled global index sequence to equal worker lengths; padding repeats samples intentionally. With <code>drop_last=True</code>, truncate evenly and discard incomplete local batches. Zero training steps are rejected. Tensors in nested dictionaries/lists/tuples move to the selected device; metadata is retained. The distributed prefetch loader propagates producer errors and stops its producer on normal exit or consumer failure.</p>
+        <p><code>none</code> assumes data already exists everywhere. <code>shared</code> calls the dataset's <code>prepareData(**dataset_args)</code> only on global rank 0 before releasing workers. <code>per_node</code> calls it once on each local rank 0. Arguments exclude <code>cls</code> and <code>set_name</code>. All workers must see the same sample content and ordering; matching sample counts cannot prove content identity. Validation is constructed only on global rank 0. The new MNIST example uses disjoint 90%/10% training/validation splits and keeps source images in host memory.</p></section>
+      <section class="section"><h2>Lifecycle and failure handling</h2><pre><code>torchrun workers
+  → device selection + process group
+  → worker identities + data preparation
+  → model/dataset construction + initial parameter synchronization
+  → training: DDP forward → collective finite check → backward/update
+  → average metrics → smoothing → synchronized scheduler
+  → global rank 0 validation + checkpoints → broadcast results
+  → coordinated stopping → reporters/loaders/DDP cleanup</code></pre>
+        <p>Only global rank 0 creates run metadata, SQLite logs, TensorBoard writers, figures, and best/last checkpoints. Other ranks receive the run identity and paths without opening those directories. Dashboard learning-rate requests are broadcast before updates and preserve the existing first optimizer-group behavior. Training metrics are averaged before smoothing; schedulers receive the same values. Validation retains per-batch averaging.</p>
+        <p>Checkpoint policy is unchanged: evaluate on epochs where <code>epoch % eval_interval == 0</code>, save <code>best.pth</code> on improvement and <code>last.pth</code> on each evaluation. Files contain ordinary unwrapped model weights. The distributed loader uses explicit device mapping and requires matching weight keys/shapes. It loads on rank 0 before DDP synchronization; other machines do not need access to that file. Optimizer, scheduler, RNG, and epoch state are not resumed.</p>
+        <p>Data/setup and primary-only errors are propagated across workers. Non-finite losses abort before backward. Communication has a finite timeout; torchrun terminates failed jobs. A custom method that stops participating in collectives may require that timeout. Fixed membership and <code>--max-restarts=0</code> are the supported defaults; automatic elastic recovery is not implemented.</p></section>
+      <section class="section"><h2>Machine-aware monitoring and verification</h2><p>Global rank 0 owns training status and progress. One local-rank-0 reporter per machine samples every NVML-detected GPU in the background, with no distributed collectives. UUID matching respects CUDA visibility/order. Idle GPUs remain visible; unresolved assignments and unavailable readings are explicit. Resource cards are grouped by machine, while job progress is shown once. Old client payloads remain supported. See the <a href="experiment-manager.html">payload and staleness guide</a>.</p>
+        <pre><code>python -m pytest tests/test_distributed.py tests/test_legacy_compatibility.py tests/test_gpu_monitoring.py
+cd Training/ExperimentManager/frontend
+npm test
+npm run build</code></pre><p>CPU tests cover two workers and two local launchers simulating multiple machines. CUDA-gated tests cover two GPUs, AMP, clipping, compilation and SampleCNN. A local simulation does not verify physical inter-machine NCCL networking; run CUDA tests and the multi-machine example on suitable hardware before relying on that deployment.</p></section>
+    </main>
+  </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="experiment-manager.html">Experiment Manager →</a></span></footer>
+</body></html>

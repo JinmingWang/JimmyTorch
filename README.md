@@ -62,6 +62,25 @@ python main.py
 
 The repository is currently used directly from source and does not provide a pinned dependency manifest. Install PyTorch for your platform, then see the [getting-started guide](docs/getting-started.html) for runtime and optional dependencies.
 
+## Distributed training (opt-in)
+
+The original `JimmyModel`, `JimmyDataset`, `JimmyTrainer`, `JimmyExperiment`, and `python main.py` workflow remain unchanged. The separate `Distributed` package supplies corresponding `DistributedJimmy*` classes. Models retain `trainStep` and `backwardOptimize`; there is no new loss hook to migrate to.
+
+```bash
+# One machine, four GPUs; batch_size is per GPU.
+torchrun --standalone --nproc-per-node=4 distributed_main.py
+
+# Two machines, four GPUs each: run on each machine, changing NODE_RANK to 0 or 1.
+# PRIMARY_HOST is the primary machine's reachable hostname/IP.
+JIMMY_DASHBOARD_HOST=PRIMARY_HOST torchrun --nnodes=2 --nproc-per-node=4 \
+  --node-rank=NODE_RANK --master-addr=PRIMARY_HOST --master-port=29500 \
+  --max-restarts=0 distributed_main.py
+```
+
+Launch the dashboard on the primary machine with `python -m Training.ExperimentManager --host 0.0.0.0 --port 9000`. All workers need identical code and logical datasets. Validation, run files, and weight checkpoints belong to global rank 0; learning rates are not automatically scaled. See the [distributed guide](docs/distributed.html) for configuration, custom hooks, preparation scopes, and limits.
+
+Experiment Manager supports both pipelines, displaying all detected GPUs and grouping distributed resources by machine. Install `nvidia-ml-py` for device-wide NVIDIA telemetry; unavailable monitoring does not stop training.
+
 ## Structure
 
 ```text

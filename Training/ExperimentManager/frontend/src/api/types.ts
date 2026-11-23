@@ -6,6 +6,7 @@ export type RunStatus =
   | "error";
 
 export interface RunIdentity {
+  id?: string | null;
   dataset: string | null;
   model: string | null;
   run_name: string | null;
@@ -30,7 +31,18 @@ export interface LearningRateState {
   pending: number | null;
 }
 
+export interface GpuStats {
+  id: string;
+  index: number;
+  name: string | null;
+  utilization: number | null;
+  memory_used: number | null;
+  memory_total: number | null;
+  training_ranks: number[] | null;
+}
+
 export interface SystemStats {
+  gpus?: GpuStats[] | null;
   cpu_util?: number;
   cpu_mem_bytes?: number;
   cpu_mem_total?: number;
@@ -39,7 +51,17 @@ export interface SystemStats {
   gpu_mem_total?: number;
 }
 
+export interface NodeStats {
+  node_id: string;
+  hostname: string;
+  ranks: number[];
+  system: SystemStats;
+  received_at: number | null;
+  connected: boolean;
+}
+
 export interface LiveSnapshot {
+  nodes?: NodeStats[];
   status: RunStatus;
   connected: boolean;
   run: RunIdentity | null;

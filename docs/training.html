@@ -91,6 +91,7 @@ report.to_csv("test-report.csv", index=False)</code></pre>
       </section>
 
       <section class="section" aria-labelledby="custom"><h2 id="custom">Custom trainers</h2><p>Assign a compatible class to <code>experiment.trainer_type</code> when a task needs a different training paradigm. It receives the built train/eval datasets, model, scheduler, resolved directories, experiment constants, and <code>ExperimentLogger</code>. Preserve the local logging and close/error lifecycle when replacing the default trainer.</p></section>
+      <section class="section"><h2>Separate distributed lifecycle</h2><p>The original classes described above remain single-process. Import <code>DistributedJimmyExperiment</code> to opt into fixed-membership multi-machine DDP. Launch <code>distributed_main.py</code> with torchrun; single-machine execution is a special case. Global rank 0 owns validation, run files, writers and checkpoints; worker metrics, dashboard learning-rate requests and stopping are coordinated. Model weights remain portable. Configuration, data preparation and launch examples are in the distributed guide.</p><p><a href="distributed.html">Distributed training guide →</a></p></section>
     </main>
   </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="experiment-manager.html">Next: Experiment Manager →</a></span></footer>
 </body></html>

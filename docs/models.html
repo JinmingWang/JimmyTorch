@@ -73,6 +73,7 @@ class Regressor(JimmyModel):
         </tbody></table></div>
         <p>See the <a href="api.html">API reference</a> for signatures and the <a href="utilities.html">specialized utilities</a> for discrete diffusion and Score-SDE processes.</p>
       </section>
+      <section class="section"><h2>Opt-in distributed models</h2><p>Use <code>DistributedJimmyModel</code> from <code>Distributed</code> for DDP. Keep <code>trainStep</code> and <code>backwardOptimize</code>: call <code>self(...)</code> for training forwards and <code>self.backwardOptimize(loss)</code> once per batch. Conventional custom overrides are supported; every rank must follow the same sequence. AMP and clipping are provided by the new base implementation. Evaluation bypasses DDP. The legacy class above is unchanged.</p><p><a href="distributed.html">Distributed training guide →</a></p></section>
     </main>
   </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="training.html">Next: Training &amp; evaluation →</a></span></footer>
 </body></html>

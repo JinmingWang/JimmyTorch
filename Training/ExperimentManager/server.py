@@ -10,6 +10,7 @@ Binds to 127.0.0.1 only; auto-increments port when the default is occupied.
 from __future__ import annotations
 
 import asyncio
+import copy
 import base64
 import json
 import logging
@@ -53,6 +54,8 @@ class LiveState:
         self.registration: Optional[dict] = None
         self.snapshot: dict = self._empty_snapshot()
         self.pending_learning_rate: Optional[float] = None
+        self.last_update = None
+        self.telemetry_timeout = 10.0
 
     @staticmethod
     def _empty_snapshot() -> dict:
@@ -76,21 +79,34 @@ class LiveState:
             "custom_fields": [],
             "learning_rate": {"applied": None, "pending": None},
             "system": {},
+            "nodes": [],
             "server_time": time.time(),
         }
 
     async def register(self, payload: dict) -> None:
         async with self._lock:
+            if payload.get("run_id") and self.registration and payload["run_id"] == self.registration.get("run_id"):
+                return  # A reconnect must not reset progress or other node readings.
             self.registration = payload
+            self.last_update = time.time()
+            self.telemetry_timeout = max(10.0, 3 * float(payload.get("telemetry_interval", 1)))
             self.snapshot = self._empty_snapshot()
             self.snapshot["connected"] = True
             self.snapshot["status"] = "idle"
             self.snapshot["run"] = {
+                "id": payload.get("run_id"),
                 "dataset": payload.get("dataset"),
                 "model": payload.get("model"),
                 "run_name": payload.get("run_name"),
                 "run_dir": payload.get("run_dir"),
             }
+            node_map = {}
+            for worker in payload.get("topology", []):
+                node_id = str(worker["node_id"])
+                node = node_map.setdefault(node_id, {"node_id": node_id, "hostname": worker["hostname"],
+                    "ranks": [], "system": {"gpus": None}, "received_at": None, "connected": False})
+                node["ranks"].append(worker["rank"])
+            self.snapshot["nodes"] = sorted(node_map.values(), key=lambda node: min(node["ranks"]))
             self.snapshot["progress"]["epochs"] = int(payload.get("epochs", 0) or 0)
             self.snapshot["progress"]["steps_per_epoch"] = int(payload.get("steps_per_epoch", 0) or 0)
             self.snapshot["progress"]["total"] = int(payload.get("total_steps", 0) or 0)
@@ -98,8 +114,49 @@ class LiveState:
             self.pending_learning_rate = None
             self.snapshot["learning_rate"]["pending"] = None
 
+    def checkRun(self, payload):
+        active_id = (self.registration or {}).get("run_id")
+        if active_id != payload.get("run_id"):
+            raise web.HTTPConflict(text="Telemetry belongs to another run")
+        if payload.get("run_id") and not self.registration:
+            raise web.HTTPConflict(text="Run is not registered")
+
+    def snapshotNow(self):
+        snapshot = copy.deepcopy(self.snapshot)
+        now = time.time()
+        terminal = snapshot["status"] in ("done", "error")
+        for node in snapshot["nodes"]:
+            node["connected"] = bool(not terminal and node["received_at"] is not None
+                                     and now - node["received_at"] < self.telemetry_timeout)
+        if (self.registration or {}).get("run_id") and self.last_update is not None:
+            snapshot["connected"] = not terminal and now - self.last_update < self.telemetry_timeout
+        snapshot["server_time"] = now
+        return snapshot
+
+    async def applyNode(self, payload):
+        async with self._lock:
+            self.checkRun(payload)
+            if not payload.get("run_id") or self.snapshot["status"] in ("done", "error"):
+                raise web.HTTPConflict(text="No active distributed run")
+            node = next((node for node in self.snapshot["nodes"]
+                         if node["node_id"] == str(payload.get("node_id"))), None)
+            if node is None:
+                raise web.HTTPBadRequest(text="Unknown node")
+            system = payload.get("system")
+            if not isinstance(system, dict):
+                raise web.HTTPBadRequest(text="system must be an object")
+            node["system"] = system
+            node["received_at"] = time.time()
+            if 0 in node["ranks"]:
+                self.snapshot["system"] = system
+            return self.snapshotNow()
+
     async def apply_update(self, payload: dict) -> dict:
         async with self._lock:
+            self.checkRun(payload)
+            if payload.get("run_id") and self.snapshot["status"] in ("done", "error"):
+                raise web.HTTPConflict(text="Run has finished")
+            self.last_update = time.time()
             self.snapshot["connected"] = True
             self.snapshot["status"] = payload.get("status", self.snapshot["status"])
             if "progress" in payload:
@@ -113,28 +170,31 @@ class LiveState:
             if "system" in payload:
                 self.snapshot["system"] = payload["system"]
             self.snapshot["server_time"] = time.time()
-            return dict(self.snapshot)
+            return self.snapshotNow()
 
-    async def apply_status(self, status: str) -> dict:
+    async def apply_status(self, status: str, payload=None) -> dict:
         async with self._lock:
+            self.checkRun(payload or {})
             self.snapshot["status"] = status
             self.snapshot["server_time"] = time.time()
-            return dict(self.snapshot)
+            return self.snapshotNow()
 
-    async def apply_finish(self, status: str = "done") -> dict:
+    async def apply_finish(self, status: str = "done", payload=None) -> dict:
         async with self._lock:
+            self.checkRun(payload or {})
             self.snapshot["status"] = status
             self.snapshot["connected"] = False
             self.snapshot["server_time"] = time.time()
-            return dict(self.snapshot)
+            return self.snapshotNow()
 
     async def set_pending_lr(self, lr: float) -> None:
         async with self._lock:
             self.pending_learning_rate = float(lr)
             self.snapshot["learning_rate"]["pending"] = float(lr)
 
-    async def consume_pending_lr(self) -> Optional[float]:
+    async def consume_pending_lr(self, payload=None) -> Optional[float]:
         async with self._lock:
+            self.checkRun(payload or {})
             lr = self.pending_learning_rate
             self.pending_learning_rate = None
             self.snapshot["learning_rate"]["pending"] = None
@@ -142,7 +202,7 @@ class LiveState:
 
     async def get_snapshot(self) -> dict:
         async with self._lock:
-            return dict(self.snapshot)
+            return self.snapshotNow()
 
 
 # ---------- websocket broadcast ----------
@@ -192,12 +252,18 @@ async def handle_ingest_update(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "pending_lr": snap["learning_rate"]["pending"]})
 
 
+async def handleIngestNode(request: web.Request) -> web.Response:
+    snapshot = await request.app["live_state"].applyNode(await request.json())
+    await request.app["broadcaster"].broadcast({"type": "live_snapshot", "payload": snapshot})
+    return web.json_response({"ok": True})
+
+
 async def handle_ingest_status(request: web.Request) -> web.Response:
     payload = await request.json()
     status = str(payload.get("status", "idle"))
     state: LiveState = request.app["live_state"]
     broadcaster: Broadcaster = request.app["broadcaster"]
-    snap = await state.apply_status(status)
+    snap = await state.apply_status(status, payload)
     await broadcaster.broadcast({"type": "live_snapshot", "payload": snap})
     return web.json_response({"ok": True})
 
@@ -207,7 +273,7 @@ async def handle_ingest_finish(request: web.Request) -> web.Response:
     status = str(payload.get("status", "done"))
     state: LiveState = request.app["live_state"]
     broadcaster: Broadcaster = request.app["broadcaster"]
-    snap = await state.apply_finish(status)
+    snap = await state.apply_finish(status, payload)
     await broadcaster.broadcast({"type": "live_snapshot", "payload": snap})
     return web.json_response({"ok": True})
 
@@ -215,7 +281,7 @@ async def handle_ingest_finish(request: web.Request) -> web.Response:
 async def handle_get_pending_lr(request: web.Request) -> web.Response:
     """Trainer polls this to pick up browser-requested LR (consuming the value)."""
     state: LiveState = request.app["live_state"]
-    lr = await state.consume_pending_lr()
+    lr = await state.consume_pending_lr(dict(request.query))
     return web.json_response({"pending": lr})
 
 
@@ -610,10 +676,20 @@ def build_app(runs_root: Optional[Path] = None) -> web.Application:
     app["global_settings"] = GlobalSettings(app["runs_root"])
     app["watcher"] = TreeWatcher(app["runs_root"], app["broadcaster"])
 
+    async def telemetryHeartbeat():
+        while True:
+            await asyncio.sleep(1)
+            if (app["live_state"].registration or {}).get("run_id"):
+                snapshot = await app["live_state"].get_snapshot()
+                await app["broadcaster"].broadcast({"type": "live_snapshot", "payload": snapshot})
+
     async def _on_startup(_app: web.Application) -> None:
         await _app["watcher"].start()
+        _app["telemetry_task"] = asyncio.create_task(telemetryHeartbeat())
 
     async def _on_cleanup(_app: web.Application) -> None:
+        _app["telemetry_task"].cancel()
+        await asyncio.gather(_app["telemetry_task"], return_exceptions=True)
         await _app["watcher"].stop()
         _app["global_settings"].close()
 
@@ -627,6 +703,7 @@ def build_app(runs_root: Optional[Path] = None) -> web.Application:
     # ingest (trainer -> server)
     app.router.add_post("/api/ingest/register", handle_ingest_register)
     app.router.add_post("/api/ingest/update", handle_ingest_update)
+    app.router.add_post("/api/ingest/node", handleIngestNode)
     app.router.add_post("/api/ingest/status", handle_ingest_status)
     app.router.add_post("/api/ingest/finish", handle_ingest_finish)
 

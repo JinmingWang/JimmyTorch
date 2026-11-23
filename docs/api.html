@@ -95,6 +95,7 @@
           <tr><td><code>testFlops</code></td><td><code>(model, input_shapes, print_detailed=False)</code></td><td>Report parameter and FLOP counts with <code>calflops</code>.</td></tr>
         </tbody></table></div>
       </section>
+      <section class="section"><h2>Distributed API</h2><p>The <code>Distributed</code> package exports <code>DistributedJimmyModel</code>, <code>DistributedJimmyDataset</code>, <code>DistributedJimmyTrainer</code> and <code>DistributedJimmyExperiment</code>. The experiment retains <code>model_cfg</code>, <code>dataset_cfg</code>, <code>lr_scheduler_cfg</code>, <code>constants</code>, <code>start(checkpoint=None)</code> and <code>test(model, test_set)</code>, adding <code>distributed_cfg</code>. For manual lifecycles import <code>DistributedContext</code> from <code>Distributed.Context</code>, construct it before CUDA objects, and close it in a finally block. No distributed arguments are added to legacy classes.</p><p><a href="distributed.html">Distributed training guide →</a></p></section>
     </main>
   </div><footer class="site-footer"><span>JimmyTorch documentation</span><span><a href="index.html">Back to overview</a></span></footer>
 </body></html>

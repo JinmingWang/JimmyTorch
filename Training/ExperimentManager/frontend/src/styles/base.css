@@ -442,3 +442,32 @@ body {
   color: var(--red);
   font-size: 0.8rem;
 }
+
+/* Per-device telemetry shares the live panel's responsive width. */
+.resource-metrics { min-width: 0; }
+.resource-metrics .metric-grid { grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); }
+.gpu-section { margin-top: 1rem; }
+.gpu-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.gpu-section-heading h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.gpu-section-heading span, .gpu-empty { color: var(--text-dim); font-size: 0.85rem; }
+.gpu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 0.75rem; }
+.gpu-card { min-width: 0; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem; }
+.gpu-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: wrap; }
+.gpu-assignment { font-size: 0.72rem; color: var(--text-dim); }
+.gpu-assignment.is-training { color: var(--green); font-weight: 600; }
+.gpu-name { margin: 0.3rem 0 0.8rem; color: var(--text-dim); overflow-wrap: anywhere; }
+.gpu-reading { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; font-size: 0.8rem; }
+.gpu-reading strong { font-family: var(--font-mono); font-weight: 500; }
+.gpu-card progress { appearance: none; display: block; width: 100%; height: 6px; border: 0; border-radius: 4px; overflow: hidden; background: var(--bg-3); accent-color: var(--cyan); margin: 0.4rem 0 0.8rem; }
+.gpu-card progress::-webkit-progress-bar { background: var(--bg-3); }
+.gpu-card progress::-webkit-progress-value { background: var(--cyan); }
+.gpu-card progress::-moz-progress-bar { background: var(--cyan); }
+.gpu-card progress.is-unavailable { opacity: 0.35; }
+
+/* Multi-machine distributed telemetry, with the same GPU cards as legacy runs. */
+.node-resources { display: grid; gap: 16px; min-width: 0; margin-top: 1rem; }
+.node-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.node-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.node-heading h3 { margin: 0; overflow-wrap: anywhere; }
+.node-heading span, .node-card > p { font-size: 12px; color: var(--text-dim); }
+.node-heading .node-stale { color: #b08028; }
